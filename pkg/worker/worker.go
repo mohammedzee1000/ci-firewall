@@ -26,7 +26,7 @@ type Worker struct {
 	multiNode       bool
 }
 
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject, kind, repoURL, target, runScript, rcvQueueName string, jenkinsBuild int, multiNode bool) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject, kind, repoURL, target, runScript, rcvQueueName, workdir string, jenkinsBuild int, multiNode bool) *Worker {
 	w := &Worker{
 		rcvq:            queue.NewAMQPQueue(amqpURI, rcvQueueName),
 		kind:            kind,
@@ -85,11 +85,11 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 	var err error
 	cmdMsg := fmt.Sprintf("Executing command %v", cmd.Args)
 	fmt.Println(cmdMsg)
-	// lmc := messages.NewLogsMessage(w.jenkinsBuild, cmdMsg)
-	// err = w.rcvq.Publish(false, lmc)
-	// if err != nil {
-	// 	return false, fmt.Errorf("unable to send log message %w", err)
-	// }
+	lmc := messages.NewLogsMessage(w.jenkinsBuild, cmdMsg)
+	err = w.rcvq.Publish(false, lmc)
+	if err != nil {
+		return false, fmt.Errorf("unable to send log message %w", err)
+	}
 	if stream {
 		done := make(chan error)
 		r, _ := cmd.StdoutPipe()
@@ -99,13 +99,13 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 			for scanner.Scan() {
 				line := scanner.Text()
 				fmt.Println(line)
-				// lm := messages.NewLogsMessage(w.jenkinsBuild, line)
-				// err1 := w.rcvq.Publish(
-				// 	false, lm,
-				// )
-				// if err1 != nil {
-				// 	done <- fmt.Errorf("unable to send log message %w", err1)
-				// }
+				lm := messages.NewLogsMessage(w.jenkinsBuild, line)
+				err1 := w.rcvq.Publish(
+					false, lm,
+				)
+				if err1 != nil {
+					done <- fmt.Errorf("unable to send log message %w", err1)
+				}
 			}
 			done <- nil
 		}(done)
@@ -126,19 +126,20 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 			return false, fmt.Errorf("failed to execute command %w", err)
 		}
 		fmt.Println(string(out))
-		// lm := messages.NewLogsMessage(w.jenkinsBuild, string(out))
-		// err1 := w.rcvq.Publish(
-		// 	false, lm,
-		// )
-		// if err1 != nil {
-		// 	done <- fmt.Errorf("unable to send log message %w", err1)
-		// }
+		lm := messages.NewLogsMessage(w.jenkinsBuild, string(out))
+		err1 := w.rcvq.Publish(
+			false, lm,
+		)
+		if err1 != nil {
+			return false, fmt.Errorf("unable to send log message %w", err1)
+		}
 	}
 	return true, nil
 }
 
 // 4
 func (w *Worker) runTests() (bool, error) {
+	var status bool
 	if w.multiNode {
 		return false, fmt.Errorf("Not Implemented yet")
 	} else {
@@ -170,9 +171,16 @@ func (w *Worker) runTests() (bool, error) {
 		if !s3 {
 			return false, nil
 		}
-		_, err = w.runCmd(exec.Command("make", "test"), true)
+		s4, err := w.runCmd(exec.Command("sh", w.runScript), true)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute run script, %w", err)
+		}
+		if s4 {
+			s4 = false
+		}
 	}
-	return false, nil
+	status = false
+	return status, nil
 }
 
 // 5
@@ -188,17 +196,17 @@ func (w *Worker) Run() error {
 	if err := w.initQueues(); err != nil {
 		return err
 	}
-	// if err := w.sendBuildInfo(); err != nil {
-	// 	return fmt.Errorf("failed to send build info %w", err)
-	// }
+	if err := w.sendBuildInfo(); err != nil {
+		return fmt.Errorf("failed to send build info %w", err)
+	}
 	success, err := w.runTests()
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
 	fmt.Printf("Success : %t", success)
-	// if err := w.sendStatusMessage(success); err != nil {
-	// 	return fmt.Errorf("failed to send status message %w", err)
-	// }
+	if err := w.sendStatusMessage(success); err != nil {
+		return fmt.Errorf("failed to send status message %w", err)
+	}
 	return nil
 }
 

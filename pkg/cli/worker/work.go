@@ -24,6 +24,7 @@ type WorkOptions struct {
 	target          string
 	runScript       string
 	recieveQName    string
+	workdir         string
 	multiNode       bool
 }
 
@@ -37,6 +38,9 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	}
 	if wo.kind == "" {
 		wo.kind = messages.RequestTypePR
+	}
+	if wo.workdir == "" {
+		wo.workdir = fmt.Sprintf("%s_%d", wo.target, wo.jenkinsBuild)
 	}
 	return nil
 }
@@ -77,7 +81,7 @@ func (wo *WorkOptions) Validate() (err error) {
 
 func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.runScript, wo.recieveQName, wo.jenkinsBuild, wo.multiNode,
+		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.runScript, wo.recieveQName, wo.workdir, wo.jenkinsBuild, wo.multiNode,
 	)
 	err = wo.worker.Run()
 	if err != nil {
