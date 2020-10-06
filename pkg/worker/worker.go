@@ -81,48 +81,52 @@ func (w *Worker) sendBuildInfo() error {
 	return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
 }
 
-func (w *Worker) runCmd(cmd *exec.Cmd) (bool, error) {
+func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 	var err error
-	done := make(chan error)
-	fmt.Println(cmd.Args)
-	r, _ := cmd.StdoutPipe()
-	cmd.Stderr = cmd.Stdout
-	scanner := bufio.NewScanner(r)
-	go func(done chan error) {
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println(line)
-			// lm := messages.NewLogsMessage(w.jenkinsBuild, line)
-			// err1 := w.rcvq.Publish(
-			// 	false, lm,
-			// )
-			// if err1 != nil {
-			// 	done <- fmt.Errorf("unable to send log message %w", err)
-			// }
+	cmdMsg := fmt.Sprintf("Executing command %v", cmd.Args)
+	fmt.Println(cmdMsg)
+	// lmc := messages.NewLogsMessage(w.jenkinsBuild, cmdMsg)
+	// err = w.rcvq.Publish(false, lmc)
+	// if err != nil {
+	// 	return false, fmt.Errorf("unable to send log message %w", err)
+	// }
+	if stream {
+		done := make(chan error)
+		r, _ := cmd.StdoutPipe()
+		cmd.Stderr = cmd.Stdout
+		scanner := bufio.NewScanner(r)
+		go func(done chan error) {
+			for scanner.Scan() {
+				line := scanner.Text()
+				fmt.Println(line)
+				// lm := messages.NewLogsMessage(w.jenkinsBuild, line)
+				// err1 := w.rcvq.Publish(
+				// 	false, lm,
+				// )
+				// if err1 != nil {
+				// 	done <- fmt.Errorf("unable to send log message %w", err1)
+				// }
+			}
+			done <- nil
+		}(done)
+		err = cmd.Start()
+		if err != nil {
+			return false, fmt.Errorf("failed to run command %w", err)
 		}
-		done <- nil
-	}(done)
-	err = cmd.Start()
-	if err != nil {
-		return false, fmt.Errorf("failed to run command %w", err)
+		err = <-done
+		if err != nil {
+			return false, err
+		}
+		if cmd.ProcessState.ExitCode() != 0 {
+			return false, nil
+		}
+	} else {
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %w", err)
+		}
+		fmt.Println(out)
 	}
-	err = <-done
-	if err != nil {
-		return false, err
-	}
-	fmt.Println("exit code ", cmd.ProcessState.ExitCode())
-	if cmd.ProcessState.ExitCode() != 0 {
-		return false, nil
-	}
-	return true, nil
-}
-
-func (w *Worker) runNoStream(cmd *exec.Cmd) (bool, error) {
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return false, err
-	}
-	fmt.Println(out)
 	return true, nil
 }
 
@@ -132,35 +136,34 @@ func (w *Worker) runTests() (bool, error) {
 		return false, fmt.Errorf("Not Implemented yet")
 	} else {
 		w.workdir = "./odo"
-		s1, err := w.runNoStream(exec.Command("git", "clone", w.repoURL, w.workdir))
+		s1, err := w.runCmd(exec.Command("git", "clone", w.repoURL, w.workdir), false)
 		if err != nil {
 			return false, err
 		}
 		os.Chdir(w.workdir)
 		if !s1 {
-			fmt.Println("Clone failed")
 			return false, nil
 		}
-		chk := ""
+		chkout := ""
 		if w.kind == messages.RequestTypePR {
-			fmt.Println("checking out pr yay!!")
-			s2, err := w.runCmd(exec.Command("git", "fetch", "origin", fmt.Sprintf("pull/%s/head:pr%s", w.target, w.target)))
+			chkout = fmt.Sprintf("pr%s", w.target)
+			fetch := fmt.Sprintf("pull/%s/head:%s", w.target, chkout)
+			s2, err := w.runCmd(exec.Command("git", "fetch", "origin", fetch), false)
 			if err != nil {
 				return false, err
 			}
-			chk = fmt.Sprintf("pr%s", w.target)
 			if !s2 {
 				return false, nil
 			}
 		}
-		s3, err := w.runCmd(exec.Command("git", "checkout", chk))
+		s3, err := w.runCmd(exec.Command("git", "checkout", chkout), false)
 		if err != nil {
 			return false, err
 		}
 		if !s3 {
 			return false, nil
 		}
-		_, err = w.runCmd(exec.Command("make", "test"))
+		_, err = w.runCmd(exec.Command("make", "test"), true)
 	}
 	return false, nil
 }
