@@ -2,6 +2,8 @@ package jenkins
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/bndr/gojenkins"
 )
@@ -41,4 +43,24 @@ func CleanupOldBuilds(url, username, password, jobName string, currentBuild int,
 		}
 	}
 	return nil
+}
+
+func GetJenkinsURL() string {
+	return os.Getenv("JENKINS_URL")
+}
+
+func GetJenkinsJob() string {
+	return os.Getenv("JOB_NAME")
+}
+
+func GetJenkinsBuildNumber() int {
+	var bn int
+	bns := os.Getenv("BUILD_NUMBER")
+	if bns == "" {
+		bn = -1
+	} else {
+		bn, _ = strconv.Atoi(bns)
+	}
+
+	return bn
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
+	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/worker"
 	"github.com/spf13/cobra"
@@ -105,11 +106,11 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", "", "the url of amqp server")
 	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", "", "the name of the recieve queue")
-	cmd.Flags().StringVar(&o.jenkinsURL, "jenkinsurl", "", "the url of jenkins server")
-	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", "", "the name of the jenkins project")
+	cmd.Flags().StringVar(&o.jenkinsURL, "jenkinsurl", jenkins.GetJenkinsURL(), "the url of jenkins server")
+	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of the jenkins project")
 	cmd.Flags().StringVar(&o.jenkinsUser, "jenkinsuser", "", "the name of the jenkins robot account")
 	cmd.Flags().StringVar(&o.jenkinsPassword, "jenkinspassword", "", "the password of the robot account user")
-	cmd.Flags().IntVar(&o.jenkinsBuild, "jenkinsbuild", -1, "the number of jenkins build")
+	cmd.Flags().IntVar(&o.jenkinsBuild, "jenkinsbuild", jenkins.GetJenkinsBuildNumber(), "the number of jenkins build")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", "", "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
