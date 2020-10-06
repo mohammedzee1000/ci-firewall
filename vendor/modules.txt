@@ -1,0 +1,20 @@
+# github.com/bndr/gojenkins v1.0.1
+## explicit
+github.com/bndr/gojenkins
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
+# github.com/spf13/cobra v0.0.5
+## explicit
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.5
+## explicit
+github.com/spf13/pflag
+# github.com/streadway/amqp v1.0.0
+## explicit
+github.com/streadway/amqp
+# github.com/stretchr/testify v1.6.1
+## explicit
+# golang.org/x/net v0.0.0-20201002202402-0a1ea396d57c
+## explicit
+golang.org/x/net/html
+golang.org/x/net/html/atom
