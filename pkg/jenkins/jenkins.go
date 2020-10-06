@@ -6,7 +6,7 @@ import (
 	"github.com/bndr/gojenkins"
 )
 
-func CleanupOldBuilds(url, username, password, jobName string, filter func(params map[string]string) bool) error {
+func CleanupOldBuilds(url, username, password, jobName string, currentBuild int, filter func(params map[string]string) bool) error {
 	jenkins, err := gojenkins.CreateJenkins(nil, url, username, password).Init()
 	if err != nil {
 		return fmt.Errorf("unable to initialize jenkins %w", err)
@@ -20,20 +20,22 @@ func CleanupOldBuilds(url, username, password, jobName string, filter func(param
 		return fmt.Errorf("failed to get all build ids %w", err)
 	}
 	for _, bid := range buildids {
-		b, err := job.GetBuild(bid.Number)
-		if err != nil {
-			return fmt.Errorf("failed to fetch build with %w", err)
-		}
-		if b.IsRunning() {
-			prms := make(map[string]string)
-			jparams := b.GetParameters()
-			for _, jpr := range jparams {
-				prms[jpr.Name] = jpr.Value
+		if bid.Number != int64(currentBuild) {
+			b, err := job.GetBuild(bid.Number)
+			if err != nil {
+				return fmt.Errorf("failed to fetch build with %w", err)
 			}
-			if filter(prms) {
-				_, err = b.Stop()
-				if err != nil {
-					return fmt.Errorf("unable to stop build %w", err)
+			if b.IsRunning() {
+				prms := make(map[string]string)
+				jparams := b.GetParameters()
+				for _, jpr := range jparams {
+					prms[jpr.Name] = jpr.Value
+				}
+				if filter(prms) {
+					_, err = b.Stop()
+					if err != nil {
+						return fmt.Errorf("unable to stop build %w", err)
+					}
 				}
 			}
 		}

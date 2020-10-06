@@ -105,6 +105,7 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", "", "the name of the jenkins project")
 	cmd.Flags().StringVar(&o.jenkinsUser, "jenkinsuser", "", "the name of the jenkins robot account")
 	cmd.Flags().StringVar(&o.jenkinsPassword, "jenkinspassword", "", "the password of the robot account user")
+	cmd.Flags().IntVar(&o.jenkinsBuild, "jenkinsbuild", -1, "the number of jenkins build")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", "", "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")

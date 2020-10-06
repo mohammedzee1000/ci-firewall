@@ -1,7 +1,10 @@
 package worker
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
@@ -19,6 +22,7 @@ type Worker struct {
 	kind            string
 	target          string
 	runScript       string
+	workdir         string
 	multiNode       bool
 }
 
@@ -41,7 +45,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 
 // 1
 func (w *Worker) cleanupOldBuilds() error {
-	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, func(params map[string]string) bool {
+	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
 		counter := 0
 		for k, v := range params {
 			if k == messages.RequestParameterKind && v == w.kind {
@@ -77,12 +81,76 @@ func (w *Worker) sendBuildInfo() error {
 	return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
 }
 
+func (w *Worker) runCmd(cmd *exec.Cmd) (bool, error) {
+	var err error
+	done := make(chan error)
+	r, _ := cmd.StdoutPipe()
+	cmd.Stderr = cmd.Stdout
+	scanner := bufio.NewScanner(r)
+	go func(done chan error) {
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line)
+			// lm := messages.NewLogsMessage(w.jenkinsBuild, line)
+			// err1 := w.rcvq.Publish(
+			// 	false, lm,
+			// )
+			// if err1 != nil {
+			// 	done <- fmt.Errorf("unable to send log message %w", err)
+			// }
+		}
+		done <- nil
+	}(done)
+	err = cmd.Start()
+	if err != nil {
+		return false, fmt.Errorf("failed to run command %w", err)
+	}
+	err = <-done
+	if err != nil {
+		return false, err
+	}
+	fmt.Println("exit code ", cmd.ProcessState.ExitCode())
+	if cmd.ProcessState.ExitCode() != 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 // 4
 func (w *Worker) runTests() (bool, error) {
 	if w.multiNode {
 		return false, fmt.Errorf("Not Implemented yet")
 	} else {
-
+		w.workdir = "./odo"
+		s1, err := w.runCmd(exec.Command("git", "clone", w.repoURL, w.workdir))
+		if err != nil {
+			return false, err
+		}
+		os.Chdir(w.workdir)
+		if !s1 {
+			fmt.Println("Clone failed")
+			return false, nil
+		}
+		chk := ""
+		if w.kind == messages.RequestTypePR {
+			fmt.Println("checking out pr yay!!")
+			s2, err := w.runCmd(exec.Command("git", "fetch", "origin", fmt.Sprintf("pull/%s/head:pr%s", w.target, w.target)))
+			if err != nil {
+				return false, err
+			}
+			chk = fmt.Sprintf("pr%s", w.target)
+			if !s2 {
+				return false, nil
+			}
+		}
+		s3, err := w.runCmd(exec.Command("git", "checkout", chk))
+		if err != nil {
+			return false, err
+		}
+		if !s3 {
+			return false, nil
+		}
+		_, err = w.runCmd(exec.Command("make", "test"))
 	}
 	return false, nil
 }
@@ -100,16 +168,17 @@ func (w *Worker) Run() error {
 	if err := w.initQueues(); err != nil {
 		return err
 	}
-	if err := w.sendBuildInfo(); err != nil {
-		return fmt.Errorf("failed to send build info %w", err)
-	}
+	// if err := w.sendBuildInfo(); err != nil {
+	// 	return fmt.Errorf("failed to send build info %w", err)
+	// }
 	success, err := w.runTests()
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
-	if err := w.sendStatusMessage(success); err != nil {
-		return fmt.Errorf("failed to send status message %w", err)
-	}
+	fmt.Printf("Success : %t", success)
+	// if err := w.sendStatusMessage(success); err != nil {
+	// 	return fmt.Errorf("failed to send status message %w", err)
+	// }
 	return nil
 }
 
