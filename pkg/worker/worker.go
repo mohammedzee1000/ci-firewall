@@ -84,6 +84,7 @@ func (w *Worker) sendBuildInfo() error {
 func (w *Worker) runCmd(cmd *exec.Cmd) (bool, error) {
 	var err error
 	done := make(chan error)
+	fmt.Println(cmd.Args)
 	r, _ := cmd.StdoutPipe()
 	cmd.Stderr = cmd.Stdout
 	scanner := bufio.NewScanner(r)
