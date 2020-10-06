@@ -203,7 +203,7 @@ func (w *Worker) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
-	fmt.Printf("Success : %t", success)
+	fmt.Printf("Success : %t\n", success)
 	if err := w.sendStatusMessage(success); err != nil {
 		return fmt.Errorf("failed to send status message %w", err)
 	}
