@@ -117,13 +117,22 @@ func (w *Worker) runCmd(cmd *exec.Cmd) (bool, error) {
 	return true, nil
 }
 
+func (w *Worker) runNoStream(cmd *exec.Cmd) (bool, error) {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	fmt.Println(out)
+	return true, nil
+}
+
 // 4
 func (w *Worker) runTests() (bool, error) {
 	if w.multiNode {
 		return false, fmt.Errorf("Not Implemented yet")
 	} else {
 		w.workdir = "./odo"
-		s1, err := w.runCmd(exec.Command("git", "clone", w.repoURL, w.workdir))
+		s1, err := w.runNoStream(exec.Command("git", "clone", w.repoURL, w.workdir))
 		if err != nil {
 			return false, err
 		}
