@@ -125,7 +125,14 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to execute command %w", err)
 		}
-		fmt.Println(out)
+		fmt.Println(string(out))
+		// lm := messages.NewLogsMessage(w.jenkinsBuild, string(out))
+		// err1 := w.rcvq.Publish(
+		// 	false, lm,
+		// )
+		// if err1 != nil {
+		// 	done <- fmt.Errorf("unable to send log message %w", err1)
+		// }
 	}
 	return true, nil
 }
