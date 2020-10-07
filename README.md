@@ -50,5 +50,16 @@ Apart from these core parameters, which will be sent by requestor, the following
 Here is an example of a jenkins build script
 
 ```bash
-
+WORKDIR="${KIND}_${TARGET}"
+rm -rf $WORKDIR
+mkdir -p $WORKDIR/{bin,repo}
+PATH="$PATH:`pwd`/$WORKDIR/bin"
+cd $WORKDIR
+git clone https://github.com/mohammedzee1000/ci-firewall.git cif
+cd cif
+git checkout main
+go build -mod=vendor cmd/ci-firewall/ci-firewall.go
+cp -avrf ./ci-firewall ../bin/
+cd ..
+ci-firewall work --env "OCP_API_URL=https://api.example.com:6443" --env "OC_DOWNLOAD_URL=https://downloads-openshift-console.apps.example.com"
 ```
