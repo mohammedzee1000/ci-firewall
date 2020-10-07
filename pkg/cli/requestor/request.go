@@ -125,7 +125,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
-	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", os.Getenv("AMQP_URI"), "the url of amqp server")
+	cmd.Flags().StringVar(&o.amqpURI, "amqpuri", os.Getenv("AMQP_URI"), "the url of amqp server")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "", "the name of the send queue")
 	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", "", "the name of the recieve queue")
 	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", os.Getenv("JOB_NAME"), "the name of the jenkins project")
