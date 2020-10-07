@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
@@ -162,21 +163,19 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 func (w *Worker) fetchRepo() error {
 	// Setup some envs we need
 	var chkout string
-	var fetchParam string
+	var prrefspec string
 	if w.kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.target)
-		fetchParam = fmt.Sprintf("origin pull/%s/HEAD:%s", w.target, chkout)
+		prrefspec = fmt.Sprintf("+refs/pull/%s/head:%s", w.target, chkout)
 	} else if w.kind == messages.RequestTypeBranch {
 		chkout = w.target
-		fetchParam = "origin"
+		prrefspec = ""
 	} else if w.kind == messages.RequestTypeTag {
 		chkout = fmt.Sprintf("tags/%s", w.target)
-		fetchParam = "origin"
+		prrefspec = ""
 	} else {
 		chkout = ""
-		fetchParam = ""
 	}
-	w.printAndStream(fetchParam)
 	//Get the repo
 	wd, err := os.Getwd()
 	if err != nil {
@@ -191,11 +190,12 @@ func (w *Worker) fetchRepo() error {
 		return fmt.Errorf("failed to clone")
 	}
 	err = repo.Fetch(&gogit.FetchOptions{
-		RemoteName: fetchParam,
+		RemoteName: "origin",
 		Progress:   os.Stdout,
+		RefSpecs:   []config.RefSpec{config.RefSpec(prrefspec)},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to fetch %s %w", fetchParam, err)
+		return fmt.Errorf("failed to fetch everything %w", err)
 	}
 	return nil
 }
