@@ -1,4 +1,5 @@
 # ci-firewall
+
 Used to run CI behind firewalls and collect result
 
 ## Pre-requisites
@@ -44,6 +45,7 @@ Apart from these core parameters, which will be sent by requestor, the following
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
 - *MultiNode*: If set to true, must have a test node db (see multinode testing below). Can be passed to cli
+- Other than this, to be safe, run the following on jenkins worker nodes `git config --global core.sharedRepository all`
 
 ### Build Script
 
@@ -79,8 +81,12 @@ Main Command:
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
 - *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`)
-- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target` (param `recievequeue`)
-- *Jenkins Project*: The name of jenkins project/job (env `JOB_NAME` or param `--jenkinsproject`)
-- *Jenkins Token*: The shared token for the jenkins project (env `JOB_TOKEN` or param `--jenkinstoken`)
+- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
+- *Jenkins Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`)
+- *Jenkins Token*: The shared token for the jenkins project. (env `JOB_TOKEN` or param `--jenkinstoken`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
 - *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
+- *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
+- *Setup Script*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
+- *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
+- *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 12 minutes. (param `--timeout`)
