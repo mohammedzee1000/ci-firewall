@@ -211,6 +211,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		}
 		os.Chdir(w.workdir)
 		cmd41 := []string{"chmod", "-R", "0777", "."}
+		w.printAndStreamCommand(cmd41)
 		s41, err := w.runCommand(s4, cmd41, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to chmod %w", err)
