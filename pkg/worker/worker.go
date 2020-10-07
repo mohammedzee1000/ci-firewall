@@ -191,7 +191,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		cmd2 := nd.SCPToWorkDirCommand(w.envFile, w.workdir)
 		w.runCommand(true, cmd2, false)
 		//Run the tests
-		cmd3 := fmt.Sprintf("export BINDIR=%[1]s/bin; cd %[1]s; . %[2]s; git -c core.sharedRepository=all clone %[3]s ./%[4]s; cd %[4]s; git fetch %[5]s; git checkout %[6]s; . %[7]s; . %[8]s", w.workdir, w.envFile, w.repoURL, w.repoDir, fetchParam, chkout, w.setupScript, w.runScript)
+		cmd3 := fmt.Sprintf("export BINDIR=%[1]s/bin; cd %[1]s; . %[2]s; git clone %[3]s ./%[4]s; cd %[4]s; git fetch %[5]s; git checkout %[6]s; . %[7]s; . %[8]s", w.workdir, w.envFile, w.repoURL, w.repoDir, fetchParam, chkout, w.setupScript, w.runScript)
 		w.printAndStreamCommandString(cmd3)
 		w.runCommand(true, nd.NodeSSHCommand(cmd3), true)
 	} else {
@@ -203,16 +203,21 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
-		cmd4 := []string{"git", "-c", "core.sharedRepository=all", "clone", w.repoURL, w.repoDir}
+		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd4)
 		s4, err := w.runCommand(true, cmd4, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to clone %w", err)
 		}
-		os.Chdir(w.repoDir)
+		os.Chdir(w.workdir)
+		cmd41 := []string{"chmod", "-R", "0777", "."}
+		s41, err := w.runCommand(s4, cmd41, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to chmod %w", err)
+		}
 		cmd5 := []string{"git", "fetch", fetchParam}
 		w.printAndStreamCommand(cmd5)
-		s5, err := w.runCommand(s4, cmd5, false)
+		s5, err := w.runCommand(s41, cmd5, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch %w", err)
 		}
