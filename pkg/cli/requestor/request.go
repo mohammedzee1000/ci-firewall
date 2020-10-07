@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
+	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/requestor"
 	"github.com/spf13/cobra"
@@ -128,7 +129,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.amqpURI, "amqpuri", os.Getenv("AMQP_URI"), "the url of amqp server")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "", "the name of the send queue")
 	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
-	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", os.Getenv("JOB_NAME"), "the name of the jenkins project")
+	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of the jenkins project")
 	cmd.Flags().StringVar(&o.jenkinsToken, "jenkinstoken", os.Getenv("JOB_TOKEN"), "the token as set on jenkins project for remote build")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
