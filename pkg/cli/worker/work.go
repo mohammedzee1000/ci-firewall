@@ -135,6 +135,7 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.runScript, "run", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.setupScript, "setup", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
 	cmd.Flags().BoolVar(&o.multiNode, "multinode", false, "multinode is used to run tests on different nodes, see docs")
+	cmd.Flags().StringVar(&o.workdir, "workdir", "", "the work directory")
 	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	return cmd
 }
