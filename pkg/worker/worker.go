@@ -210,7 +210,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		w.printAndStreamCommand(cmd6)
 		w.runCommand(cmd6, false)
 		//tmp
-		cmd7 := []string{"make", "test"}
+		cmd7 := []string{"cat", "Makefile"}
 		w.printAndStreamCommand(cmd7)
 		w.runCommand(cmd7, true)
 	}
