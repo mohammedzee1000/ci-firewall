@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -28,11 +29,26 @@ type WorkOptions struct {
 	setupScript     string
 	recieveQName    string
 	workdir         string
+	envVarsArr      []string
+	envVars         map[string]string
 	multiNode       bool
 }
 
 func NewWorkOptions() *WorkOptions {
-	return &WorkOptions{}
+	return &WorkOptions{
+		envVars: make(map[string]string),
+	}
+}
+
+func (wo *WorkOptions) envVarsArrToEnvVars() error {
+	for _, item := range wo.envVarsArr {
+		res := strings.Split(item, "=")
+		if len(res) != 2 {
+			return fmt.Errorf("unable to split envvar, is it in the form FOO=BAR?")
+		}
+		wo.envVars[res[0]] = res[1]
+	}
+	return nil
 }
 
 func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) error {
@@ -45,7 +61,7 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	if wo.workdir == "" {
 		wo.workdir = fmt.Sprintf("%s_%s", wo.kind, wo.target)
 	}
-	return nil
+	return wo.envVarsArrToEnvVars()
 }
 
 func (wo *WorkOptions) Validate() (err error) {
@@ -84,7 +100,7 @@ func (wo *WorkOptions) Validate() (err error) {
 
 func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.runScript, wo.recieveQName, wo.workdir, wo.jenkinsBuild, wo.multiNode,
+		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.workdir, wo.envVars, wo.jenkinsBuild, wo.multiNode,
 	)
 	err = wo.worker.Run()
 	if err != nil {
@@ -119,5 +135,6 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.runScript, "run", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.setupScript, "setup", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
 	cmd.Flags().BoolVar(&o.multiNode, "multinode", false, "multinode is used to run tests on different nodes, see docs")
+	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	return cmd
 }
