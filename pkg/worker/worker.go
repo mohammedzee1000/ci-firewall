@@ -93,13 +93,13 @@ func (w *Worker) sendBuildInfo() error {
 
 func (w *Worker) printAndStream(msg string) error {
 	fmt.Println(msg)
-	lm := messages.NewLogsMessage(w.jenkinsBuild, msg)
-	err := w.rcvq.Publish(
-		false, lm,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to stream log message %w", err)
-	}
+	// lm := messages.NewLogsMessage(w.jenkinsBuild, msg)
+	// err := w.rcvq.Publish(
+	// 	false, lm,
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("failed to stream log message %w", err)
+	// }
 	return nil
 }
 
