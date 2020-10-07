@@ -211,15 +211,10 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("failed to clone %w", err)
 		}
 		os.Chdir(w.repoDir)
-		cmd41 := []string{"chmod", "-R", "0777", "."}
-		w.printAndStreamCommand(cmd41)
-		s41, err := w.runCommand(s4, cmd41, false)
-		if err != nil {
-			return false, fmt.Errorf("failed to chmod %w", err)
-		}
+
 		cmd5 := []string{"git", "fetch", fetchParam}
 		w.printAndStreamCommand(cmd5)
-		s5, err := w.runCommand(s41, cmd5, false)
+		s5, err := w.runCommand(s4, cmd5, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch %w", err)
 		}
