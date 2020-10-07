@@ -111,46 +111,49 @@ func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
 	return w.printAndStream(fmt.Sprintf("Executing command [%s]", cmdArgs))
 }
 
-func (w *Worker) runCommand(cmdArgs []string, stream bool) (bool, error) {
+func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (bool, error) {
 	var err error
-	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	if stream {
-		done := make(chan error)
-		r, _ := cmd.StdoutPipe()
-		cmd.Stderr = cmd.Stdout
-		scanner := bufio.NewScanner(r)
-		go func(done chan error) {
-			for scanner.Scan() {
-				line := scanner.Text()
-				err1 := w.printAndStream(line)
-				if err1 != nil {
-					done <- err1
+	if oldsuccess {
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		if stream {
+			done := make(chan error)
+			r, _ := cmd.StdoutPipe()
+			cmd.Stderr = cmd.Stdout
+			scanner := bufio.NewScanner(r)
+			go func(done chan error) {
+				for scanner.Scan() {
+					line := scanner.Text()
+					err1 := w.printAndStream(line)
+					if err1 != nil {
+						done <- err1
+					}
 				}
+				done <- nil
+			}(done)
+			err = cmd.Start()
+			if err != nil {
+				return false, fmt.Errorf("failed to run command %w", err)
 			}
-			done <- nil
-		}(done)
-		err = cmd.Start()
-		if err != nil {
-			return false, fmt.Errorf("failed to run command %w", err)
+			err = <-done
+			if err != nil {
+				return false, err
+			}
+			if cmd.ProcessState.ExitCode() != 0 {
+				return false, nil
+			}
+		} else {
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return false, fmt.Errorf("failed to execute command %w", err)
+			}
+			err1 := w.printAndStream(string(out))
+			if err1 != nil {
+				return false, err1
+			}
 		}
-		err = <-done
-		if err != nil {
-			return false, err
-		}
-		if cmd.ProcessState.ExitCode() != 0 {
-			return false, nil
-		}
-	} else {
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %w", err)
-		}
-		err1 := w.printAndStream(string(out))
-		if err1 != nil {
-			return false, err1
-		}
+		return true, nil
 	}
-	return true, nil
+	return false, nil
 }
 
 func (w *Worker) runTests(nd *node.Node) (bool, error) {
@@ -180,17 +183,17 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		//Setup node
 		w.printAndStream("Preparing remote node...")
 		cmd1 := fmt.Sprintf("rm -rf %s;mkdir -p %s/{bin,%s}", w.workdir, w.workdir, w.repoDir)
-		w.runCommand(nd.NodeSSHCommand(cmd1), false)
+		w.runCommand(true, nd.NodeSSHCommand(cmd1), false)
 		err = nd.GenerateEnvFile(w.envFile, w.envVars)
 		if err != nil {
 			return false, fmt.Errorf("failed to generate env file %w", err)
 		}
 		cmd2 := nd.SCPToWorkDirCommand(w.envFile, w.workdir)
-		w.runCommand(cmd2, false)
+		w.runCommand(true, cmd2, false)
 		//Run the tests
 		cmd3 := fmt.Sprintf("export BINDIR=%[1]s/bin; cd %[1]s; . %[2]s; git clone %[3]s ./%[4]s; cd %[4]s; git fetch %[5]s; git checkout %[6]s; . %[7]s; . %[8]s", w.workdir, w.envFile, w.repoURL, w.repoDir, fetchParam, chkout, w.setupScript, w.runScript)
 		w.printAndStreamCommandString(cmd3)
-		w.runCommand(nd.NodeSSHCommand(cmd3), true)
+		w.runCommand(true, nd.NodeSSHCommand(cmd3), true)
 	} else {
 		//non node testing happens here (in-place)
 		//* set required envs
@@ -202,21 +205,38 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		}
 		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd4)
-		w.runCommand(cmd4, false)
+		s4, err := w.runCommand(true, cmd4, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to clone %w", err)
+		}
 		os.Chdir(w.repoDir)
 		cmd5 := []string{"git", "fetch", fetchParam}
 		w.printAndStreamCommand(cmd5)
-		w.runCommand(cmd5, false)
+		s5, err := w.runCommand(s4, cmd5, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch %w", err)
+		}
 		cmd6 := []string{"git", "checkout", chkout}
 		w.printAndStreamCommand(cmd6)
-		w.runCommand(cmd6, false)
+		s6, err := w.runCommand(s5, cmd6, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to checkout %w", err)
+		}
 		//tmp
 		cmd7 := []string{"sh", w.setupScript}
 		w.printAndStreamCommand(cmd7)
-		w.runCommand(cmd7, true)
+		s7, err := w.runCommand(s6, cmd7, true)
+		if err != nil {
+			return false, fmt.Errorf("failed to run setup script %w", err)
+		}
+
 		cmd8 := []string{"sh", w.runScript}
 		w.printAndStreamCommand(cmd8)
-		w.runCommand(cmd8, true)
+		s8, err := w.runCommand(s7, cmd8, true)
+		if err != nil {
+			return false, fmt.Errorf("failed to run run script %w", err)
+		}
+		status = s8
 	}
 	return status, nil
 }
