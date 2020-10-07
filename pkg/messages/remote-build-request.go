@@ -7,7 +7,9 @@ const (
 	RequestParameterKind         = "KIND"
 	RequestParameterTarget       = "TARGET"
 	RequestParameterRunScript    = "RUN_SCRIPT"
+	RequestParameterSetupScript  = "SETUP_SCRIPT"
 	RequestParameterRcvQueueName = "RCV_QUEUE_NAME"
+	RequesParameterRepoURL       = "REPO_URL"
 )
 
 type RemoteBuildRequestMessageParameters map[string]string
@@ -18,16 +20,17 @@ type RemoteBuildRequestMessage struct {
 	Parameter []RemoteBuildRequestMessageParameters `json:"parameter"`
 }
 
-func NewRemoteBuildRequestMessage(project, token, repoURL, kind, target, runscript, recieveQueueName string) *RemoteBuildRequestMessage {
+func NewRemoteBuildRequestMessage(project, token, repoURL, kind, target, setupscript, runscript, recieveQueueName string) *RemoteBuildRequestMessage {
 	r := &RemoteBuildRequestMessage{
 		Project: project,
 		Token:   token,
 	}
-	r.AddParameter("REPO_URL", repoURL)
+	r.AddParameter(RequesParameterRepoURL, repoURL)
 	r.AddParameter(RequestParameterKind, kind)
 	r.AddParameter(RequestParameterTarget, target)
 	r.AddParameter(RequestParameterRunScript, runscript)
 	r.AddParameter(RequestParameterRcvQueueName, recieveQueueName)
+	r.AddParameter(RequestParameterSetupScript, setupscript)
 	return r
 }
 

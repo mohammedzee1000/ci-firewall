@@ -81,15 +81,16 @@ func (w *Worker) sendBuildInfo() error {
 	return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
 }
 
-func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
+func (w *Worker) runCmd(cmdArgs []string, stream bool) (bool, error) {
 	var err error
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmdMsg := fmt.Sprintf("Executing command %v", cmd.Args)
 	fmt.Println(cmdMsg)
-	lmc := messages.NewLogsMessage(w.jenkinsBuild, cmdMsg)
-	err = w.rcvq.Publish(false, lmc)
-	if err != nil {
-		return false, fmt.Errorf("unable to send log message %w", err)
-	}
+	// lmc := messages.NewLogsMessage(w.jenkinsBuild, cmdMsg)
+	// err = w.rcvq.Publish(false, lmc)
+	// if err != nil {
+	// 	return false, fmt.Errorf("unable to send log message %w", err)
+	// }
 	if stream {
 		done := make(chan error)
 		r, _ := cmd.StdoutPipe()
@@ -99,13 +100,13 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 			for scanner.Scan() {
 				line := scanner.Text()
 				fmt.Println(line)
-				lm := messages.NewLogsMessage(w.jenkinsBuild, line)
-				err1 := w.rcvq.Publish(
-					false, lm,
-				)
-				if err1 != nil {
-					done <- fmt.Errorf("unable to send log message %w", err1)
-				}
+				// lm := messages.NewLogsMessage(w.jenkinsBuild, line)
+				// err1 := w.rcvq.Publish(
+				// 	false, lm,
+				// )
+				// if err1 != nil {
+				// 	done <- fmt.Errorf("unable to send log message %w", err1)
+				// }
 			}
 			done <- nil
 		}(done)
@@ -126,13 +127,13 @@ func (w *Worker) runCmd(cmd *exec.Cmd, stream bool) (bool, error) {
 			return false, fmt.Errorf("failed to execute command %w", err)
 		}
 		fmt.Println(string(out))
-		lm := messages.NewLogsMessage(w.jenkinsBuild, string(out))
-		err1 := w.rcvq.Publish(
-			false, lm,
-		)
-		if err1 != nil {
-			return false, fmt.Errorf("unable to send log message %w", err1)
-		}
+		// lm := messages.NewLogsMessage(w.jenkinsBuild, string(out))
+		// err1 := w.rcvq.Publish(
+		// 	false, lm,
+		// )
+		// if err1 != nil {
+		// 	return false, fmt.Errorf("unable to send log message %w", err1)
+		// }
 	}
 	return true, nil
 }
@@ -144,7 +145,7 @@ func (w *Worker) runTests() (bool, error) {
 		return false, fmt.Errorf("Not Implemented yet")
 	} else {
 		w.workdir = "./odo"
-		s1, err := w.runCmd(exec.Command("git", "clone", w.repoURL, w.workdir), false)
+		s1, err := w.runCmd([]string{"git", "clone", w.repoURL, w.workdir}, false)
 		if err != nil {
 			return false, err
 		}
@@ -156,7 +157,7 @@ func (w *Worker) runTests() (bool, error) {
 		if w.kind == messages.RequestTypePR {
 			chkout = fmt.Sprintf("pr%s", w.target)
 			fetch := fmt.Sprintf("pull/%s/head:%s", w.target, chkout)
-			s2, err := w.runCmd(exec.Command("git", "fetch", "origin", fetch), false)
+			s2, err := w.runCmd([]string{"git", "fetch", "origin", fetch}, false)
 			if err != nil {
 				return false, err
 			}
@@ -164,14 +165,14 @@ func (w *Worker) runTests() (bool, error) {
 				return false, nil
 			}
 		}
-		s3, err := w.runCmd(exec.Command("git", "checkout", chkout), false)
+		s3, err := w.runCmd([]string{"git", "checkout", chkout}, false)
 		if err != nil {
 			return false, err
 		}
 		if !s3 {
 			return false, nil
 		}
-		s4, err := w.runCmd(exec.Command("sh", w.runScript), true)
+		s4, err := w.runCmd([]string{"make", "test"}, true)
 		if err != nil {
 			return false, fmt.Errorf("failed to execute run script, %w", err)
 		}

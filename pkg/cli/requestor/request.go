@@ -23,6 +23,7 @@ type RequestOptions struct {
 	kind           string
 	target         string
 	runScript      string
+	setupScript    string
 	recieveQName   string
 }
 
@@ -65,6 +66,9 @@ func (ro *RequestOptions) Validate() (err error) {
 	if ro.runScript == "" {
 		return fmt.Errorf("provide Run Script")
 	}
+	if ro.setupScript == "" {
+		return fmt.Errorf("provide the setup script")
+	}
 	if ro.kind != messages.RequestTypePR && ro.kind != messages.RequestTypeBranch && ro.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
@@ -80,6 +84,7 @@ func (ro *RequestOptions) Run() (err error) {
 		ro.repoURL,
 		ro.kind,
 		ro.target,
+		ro.setupScript,
 		ro.runScript,
 		ro.recieveQName,
 	)
@@ -127,5 +132,6 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "run", "", "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.setupScript, "setup", "", "the setup script to run")
 	return cmd
 }

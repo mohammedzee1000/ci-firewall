@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -24,6 +25,7 @@ type WorkOptions struct {
 	kind            string
 	target          string
 	runScript       string
+	setupScript     string
 	recieveQName    string
 	workdir         string
 	multiNode       bool
@@ -41,7 +43,7 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 		wo.kind = messages.RequestTypePR
 	}
 	if wo.workdir == "" {
-		wo.workdir = fmt.Sprintf("%s_%d", wo.target, wo.jenkinsBuild)
+		wo.workdir = fmt.Sprintf("%s_%s", wo.kind, wo.target)
 	}
 	return nil
 }
@@ -104,17 +106,18 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
-	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", "", "the url of amqp server")
-	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", "", "the name of the recieve queue")
+	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", os.Getenv("AMQP_URI"), "the url of amqp server")
+	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
 	cmd.Flags().StringVar(&o.jenkinsURL, "jenkinsurl", jenkins.GetJenkinsURL(), "the url of jenkins server")
 	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of the jenkins project")
-	cmd.Flags().StringVar(&o.jenkinsUser, "jenkinsuser", "", "the name of the jenkins robot account")
-	cmd.Flags().StringVar(&o.jenkinsPassword, "jenkinspassword", "", "the password of the robot account user")
+	cmd.Flags().StringVar(&o.jenkinsUser, "jenkinsuser", os.Getenv("JENKINS_ROBOT_USER"), "the name of the jenkins robot account")
+	cmd.Flags().StringVar(&o.jenkinsPassword, "jenkinspassword", os.Getenv("JENKINS_ROBOT_PASSWORD"), "the password of the robot account user")
 	cmd.Flags().IntVar(&o.jenkinsBuild, "jenkinsbuild", jenkins.GetJenkinsBuildNumber(), "the number of jenkins build")
-	cmd.Flags().StringVar(&o.repoURL, "repourl", "", "the url of the repo to clone on jenkins")
-	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
-	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
-	cmd.Flags().StringVar(&o.runScript, "run", "", "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
+	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
+	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
+	cmd.Flags().StringVar(&o.runScript, "run", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.setupScript, "setup", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
 	cmd.Flags().BoolVar(&o.multiNode, "multinode", false, "multinode is used to run tests on different nodes, see docs")
 	return cmd
 }

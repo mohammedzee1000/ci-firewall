@@ -21,6 +21,7 @@ The requestor MUST have following information in it, so that it can be passed as
 - *Target*: The target of the repo to test. Can be pr no, branch name or tag name
 - *Kind*: The kind of target. `PR|BRANCH|TAG`
 - *Run Script*: The script to run on the jenkins. Relative to repo root
+- *Setup Script*: The script to run before run script. Relative to repo root.
 
 ### Worker Jenkins job configuration
 
@@ -31,6 +32,7 @@ The worker jenkins job MUST have following parameters defined. They do not have 
 - `TARGET`: The target in the repo to test against. Example PR no/Branch Name etc
 - `RUN_SCRIPT`: The entrypoint shell script to execute on worker side. Must handle the exit 1 case and be relative to repo root.
 - `RCV_QUEUE_NAME`: Name of the recieve queue on the worker replies to requestor
+- `SETUP_SCRIPT`: Name of setup script to run before running tests on worker side, Must handle exit 1 case and be relative to repo root
 
 Apart from these core parameters, which will be sent by requestor, the following information will be needed in the worker. They will need to be passed to the worker cli as parameters in your jenkins (explained further down):
 
@@ -38,6 +40,7 @@ Apart from these core parameters, which will be sent by requestor, the following
 - *Jenkins Job/Project*: The name of the jenkins job or project (This should already be exposed as `JOB_NAME` in jenkins build)
 - *Jenkins Build Number*: The number of the jenkins build(this should already be exposed as `BUILD_NUMBER` in jenkins build).
 
-- *AMQP URI*: The full URL of amqp server, including username/password and virtual servers if any
-- *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project.
-- *Jenkins Robot User Password*: The password of above user.
+- *AMQP URI*: The full URL of amqp server, including username/password and virtual servers, if any. looks for `AMQP_URI` env if set or can be passed as argument
+- *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
+- *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument
+- *MultiNode*: If set to true, must have a test node db (see multinode testing below)
