@@ -131,10 +131,10 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", os.Getenv("JOB_NAME"), "the name of the jenkins project")
 	cmd.Flags().StringVar(&o.jenkinsToken, "jenkinstoken", os.Getenv("JOB_TOKEN"), "the token as set on jenkins project for remote build")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv("REPO_URL"), "the url of the repo to clone on jenkins")
-	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
-	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
-	cmd.Flags().StringVar(&o.runScript, "run", "", "the path of the script to run on jenkins, relative to repo root")
-	cmd.Flags().StringVar(&o.setupScript, "setup", "", "the setup script to run")
+	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
+	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
+	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the setup script to run")
 	cmd.Flags().DurationVar(&o.timeout, "", 15*time.Minute, "timeout duration ")
 	return cmd
 }
