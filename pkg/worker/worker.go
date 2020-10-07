@@ -204,13 +204,13 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
-		cmd4 := []string{"su", "jenkins", "git", "clone", w.repoURL, w.repoDir}
+		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd4)
 		s4, err := w.runCommand(true, cmd4, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to clone %w", err)
 		}
-		os.Chdir(w.workdir)
+		os.Chdir(w.repoDir)
 		cmd41 := []string{"chmod", "-R", "0777", "."}
 		w.printAndStreamCommand(cmd41)
 		s41, err := w.runCommand(s4, cmd41, false)
