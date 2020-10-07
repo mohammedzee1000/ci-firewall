@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -177,8 +178,12 @@ func (w *Worker) fetchRepo() error {
 	}
 	w.printAndStream(fetchParam)
 	//Get the repo
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("unable to get wd %w", err)
+	}
 	w.printAndStream("Getting repo")
-	repo, err := gogit.PlainClone("", false, &gogit.CloneOptions{
+	repo, err := gogit.PlainClone(filepath.Join(wd, w.workdir, w.repoDir), false, &gogit.CloneOptions{
 		URL:      "https://github.com/go-git/go-git",
 		Progress: os.Stdout,
 	})
@@ -187,6 +192,7 @@ func (w *Worker) fetchRepo() error {
 	}
 	err = repo.Fetch(&gogit.FetchOptions{
 		RemoteName: fetchParam,
+		Progress:   os.Stdout,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s %w", fetchParam, err)
