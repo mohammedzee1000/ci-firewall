@@ -166,7 +166,7 @@ func (w *Worker) fetchRepo() error {
 	var prrefspec string
 	if w.kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.target)
-
+		prrefspec = fmt.Sprintf("+pull/%[1]s/head:pr%[1]s", w.target)
 	} else if w.kind == messages.RequestTypeBranch {
 		chkout = w.target
 		prrefspec = ""
@@ -194,7 +194,7 @@ func (w *Worker) fetchRepo() error {
 	w.printAndStream("Fetching all prs")
 	err = repo.Fetch(&gogit.FetchOptions{
 		Progress: os.Stdout,
-		RefSpecs: []config.RefSpec{config.DefaultFetchRefSpec, config.DefaultPushRefSpec, config.RefSpec("+refs/pull/*/head:refs/remotes/origin/pr/*")},
+		RefSpecs: []config.RefSpec{config.DefaultFetchRefSpec, config.DefaultPushRefSpec, config.RefSpec(prrefspec)},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to fetch everything %w", err)
