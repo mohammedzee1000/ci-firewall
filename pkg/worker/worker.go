@@ -188,6 +188,7 @@ func (w *Worker) fetchRepo() error {
 	if err != nil {
 		return fmt.Errorf("failed to clone %w", err)
 	}
+	os.Chdir(w.repoDir)
 	cmd2 := []string{"git", "fetch", "origin", prrefspec}
 	w.printAndStreamCommand(cmd2)
 	_, err = w.runCommand(s1, cmd2, false)
