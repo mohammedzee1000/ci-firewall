@@ -199,7 +199,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		for k, v := range w.envVars {
 			os.Setenv(k, v)
 		}
-		cmd4 := []string{"git", "clone", w.repoURL}
+		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd4)
 		w.runCommand(cmd4, false)
 		os.Chdir(w.repoDir)
@@ -210,7 +210,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		w.printAndStreamCommand(cmd6)
 		w.runCommand(cmd6, false)
 		//tmp
-		cmd7 := []string{"ls -la"}
+		cmd7 := []string{"make", "test"}
 		w.printAndStreamCommand(cmd7)
 		w.runCommand(cmd7, false)
 	}
