@@ -197,7 +197,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		w.envVars["BASE_OS"] = "linux"
 		w.envVars["ARCH"] = "amd64"
 		for k, v := range w.envVars {
-			w.printAndStream(fmt.Sprintf("%s=%s", k, v))
+			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
 		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
