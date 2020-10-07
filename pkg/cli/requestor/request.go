@@ -136,6 +136,6 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the setup script to run")
-	cmd.Flags().DurationVar(&o.timeout, "", 15*time.Minute, "timeout duration ")
+	cmd.Flags().DurationVar(&o.timeout, "timeout", 15*time.Minute, "timeout duration ")
 	return cmd
 }
