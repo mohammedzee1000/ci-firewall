@@ -3,6 +3,7 @@ package requestor
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
@@ -124,12 +125,12 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
-	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", "", "the url of amqp server")
+	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", os.Getenv("AMQP_URI"), "the url of amqp server")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "", "the name of the send queue")
 	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", "", "the name of the recieve queue")
-	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", "", "the name of the jenkins project")
-	cmd.Flags().StringVar(&o.jenkinsToken, "jenkinstoken", "", "the token as set on jenkins project for remote build")
-	cmd.Flags().StringVar(&o.repoURL, "repourl", "", "the url of the repo to clone on jenkins")
+	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", os.Getenv("JOB_NAME"), "the name of the jenkins project")
+	cmd.Flags().StringVar(&o.jenkinsToken, "jenkinstoken", os.Getenv("JOB_TOKEN"), "the token as set on jenkins project for remote build")
+	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv("REPO_URL"), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", "", "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "run", "", "the path of the script to run on jenkins, relative to repo root")
