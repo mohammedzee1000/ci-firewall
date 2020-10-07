@@ -204,37 +204,32 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
-		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
-		w.printAndStreamCommand(cmd4)
-		s4, err := w.runCommand(true, cmd4, false)
-		if err != nil {
-			return false, fmt.Errorf("failed to clone %w", err)
-		}
-		os.Chdir(w.repoDir)
 
+		//assumption is made that repo is cloned in repo
+		os.Chdir(w.repoDir)
 		cmd5 := []string{"git", "fetch", fetchParam}
 		w.printAndStreamCommand(cmd5)
-		s5, err := w.runCommand(s4, cmd5, false)
+		s4, err := w.runCommand(true, cmd5, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch %w", err)
 		}
 		cmd6 := []string{"git", "checkout", chkout}
 		w.printAndStreamCommand(cmd6)
-		s6, err := w.runCommand(s5, cmd6, false)
+		s5, err := w.runCommand(s4, cmd6, false)
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 		//tmp
 		cmd7 := []string{"sh", w.setupScript}
 		w.printAndStreamCommand(cmd7)
-		s7, err := w.runCommand(s6, cmd7, true)
+		s6, err := w.runCommand(s5, cmd7, true)
 		if err != nil {
 			return false, fmt.Errorf("failed to run setup script %w", err)
 		}
 
 		cmd8 := []string{"sh", w.runScript}
 		w.printAndStreamCommand(cmd8)
-		s8, err := w.runCommand(s7, cmd8, true)
+		s8, err := w.runCommand(s6, cmd8, true)
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script %w", err)
 		}
