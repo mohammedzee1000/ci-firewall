@@ -166,7 +166,7 @@ func (w *Worker) fetchRepo() error {
 	var prrefspec string
 	if w.kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.target)
-		prrefspec = fmt.Sprintf("+refs/pull/%s/head:%s", w.target, chkout)
+		prrefspec = fmt.Sprintf("+refs/pull/*")
 	} else if w.kind == messages.RequestTypeBranch {
 		chkout = w.target
 		prrefspec = ""
@@ -176,6 +176,7 @@ func (w *Worker) fetchRepo() error {
 	} else {
 		chkout = ""
 	}
+	w.printAndStream(chkout)
 	//Get the repo
 	wd, err := os.Getwd()
 	if err != nil {
