@@ -212,7 +212,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		//tmp
 		cmd7 := []string{"ls -la"}
 		w.printAndStreamCommand(cmd7)
-		w.runCommand(cmd7, true)
+		w.runCommand(cmd7, false)
 	}
 	return status, nil
 }
