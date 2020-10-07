@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
@@ -157,17 +158,8 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 	return false, nil
 }
 
-func (w *Worker) runTests(nd *node.Node) (bool, error) {
-	var status bool
-	var err error
-	//inform the user
-	runMsg := "Running Tests"
-	if nd != nil {
-		runMsg = fmt.Sprintf("%s on node %s", runMsg, nd.OS)
-	}
-	w.printAndStream(runMsg)
-
-	//common ops here
+func (w *Worker) fetchRepo() error {
+	// Setup some envs we need
 	var chkout string
 	var fetchParam string
 	if w.kind == messages.RequestTypePR {
@@ -175,26 +167,39 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		fetchParam = fmt.Sprintf("origin pull/%s/HEAD:%s", w.target, chkout)
 	} else if w.kind == messages.RequestTypeBranch {
 		chkout = w.target
+		fetchParam = "origin"
 	} else if w.kind == messages.RequestTypeTag {
 		chkout = fmt.Sprintf("tags/%s", w.target)
+		fetchParam = "origin"
+	} else {
+		chkout = ""
+		fetchParam = ""
 	}
+	w.printAndStream(fetchParam)
+	//Get the repo
+	w.printAndStream("Getting repo")
+	repo, err := gogit.PlainClone("", false, &gogit.CloneOptions{
+		URL:      "https://github.com/go-git/go-git",
+		Progress: os.Stdout,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to clone")
+	}
+	err = repo.Fetch(&gogit.FetchOptions{
+		RemoteName: fetchParam,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch %s %w", fetchParam, err)
+	}
+	return nil
+}
 
+func (w *Worker) runTests(nd *node.Node) (bool, error) {
+	var status bool
 	//if we need to run the tests on some node, do this here
 	if nd != nil {
 		//Setup node
-		w.printAndStream("Preparing remote node...")
-		cmd1 := fmt.Sprintf("rm -rf %s;mkdir -p %s/{bin,%s}", w.workdir, w.workdir, w.repoDir)
-		w.runCommand(true, nd.NodeSSHCommand(cmd1), false)
-		err = nd.GenerateEnvFile(w.envFile, w.envVars)
-		if err != nil {
-			return false, fmt.Errorf("failed to generate env file %w", err)
-		}
-		cmd2 := nd.SCPToWorkDirCommand(w.envFile, w.workdir)
-		w.runCommand(true, cmd2, false)
-		//Run the tests
-		cmd3 := fmt.Sprintf("export BINDIR=%[1]s/bin; cd %[1]s; . %[2]s; git clone %[3]s ./%[4]s; cd %[4]s; git fetch %[5]s; git checkout %[6]s; . %[7]s; . %[8]s", w.workdir, w.envFile, w.repoURL, w.repoDir, fetchParam, chkout, w.setupScript, w.runScript)
-		w.printAndStreamCommandString(cmd3)
-		w.runCommand(true, nd.NodeSSHCommand(cmd3), true)
+
 	} else {
 		//non node testing happens here (in-place)
 		//* set required envs
@@ -205,35 +210,6 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			os.Setenv(k, v)
 		}
 
-		//assumption is made that repo is cloned in repo
-		os.Chdir(w.repoDir)
-		cmd5 := []string{"git", "fetch", fetchParam}
-		w.printAndStreamCommand(cmd5)
-		s4, err := w.runCommand(true, cmd5, false)
-		if err != nil {
-			return false, fmt.Errorf("failed to fetch %w", err)
-		}
-		cmd6 := []string{"git", "checkout", chkout}
-		w.printAndStreamCommand(cmd6)
-		s5, err := w.runCommand(s4, cmd6, false)
-		if err != nil {
-			return false, fmt.Errorf("failed to checkout %w", err)
-		}
-		//tmp
-		cmd7 := []string{"sh", w.setupScript}
-		w.printAndStreamCommand(cmd7)
-		s6, err := w.runCommand(s5, cmd7, true)
-		if err != nil {
-			return false, fmt.Errorf("failed to run setup script %w", err)
-		}
-
-		cmd8 := []string{"sh", w.runScript}
-		w.printAndStreamCommand(cmd8)
-		s8, err := w.runCommand(s6, cmd8, true)
-		if err != nil {
-			return false, fmt.Errorf("failed to run run script %w", err)
-		}
-		status = s8
 	}
 	return status, nil
 }
@@ -242,6 +218,10 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 func (w *Worker) testing() (bool, error) {
 	status := true
 	var err error
+	err = w.cleanupOldBuilds()
+	if err != nil {
+		return false, fmt.Errorf("unable to fetch repo %w", err)
+	}
 	if w.multiNode {
 		w.NodeList, err = node.NodeListFromDir("../test-nodes")
 		if err != nil {
