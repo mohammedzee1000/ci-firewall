@@ -197,6 +197,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		w.envVars["BASE_OS"] = "linux"
 		w.envVars["ARCH"] = "amd64"
 		for k, v := range w.envVars {
+			w.printAndStream(fmt.Sprintf("%s=%s", k, v))
 			os.Setenv(k, v)
 		}
 		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
@@ -240,40 +241,6 @@ func (w *Worker) testing() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		// s1, err := w.runCommand([]string{"git", "clone", w.repoURL, w.workdir}, false)
-		// if err != nil {
-		// 	return false, err
-		// }
-		// os.Chdir(w.workdir)
-		// if !s1 {
-		// 	return false, nil
-		// }
-		// chkout := ""
-		// if w.kind == messages.RequestTypePR {
-		// 	chkout = fmt.Sprintf("pr%s", w.target)
-		// 	fetch := fmt.Sprintf("pull/%s/head:%s", w.target, chkout)
-		// 	s2, err := w.runCommand([]string{"git", "fetch", "origin", fetch}, false)
-		// 	if err != nil {
-		// 		return false, err
-		// 	}
-		// 	if !s2 {
-		// 		return false, nil
-		// 	}
-		// }
-		// s3, err := w.runCommand([]string{"git", "checkout", chkout}, false)
-		// if err != nil {
-		// 	return false, err
-		// }
-		// if !s3 {
-		// 	return false, nil
-		// }
-		// s4, err := w.runCommand([]string{"make", "test"}, true)
-		// if err != nil {
-		// 	return false, fmt.Errorf("failed to execute run script, %w", err)
-		// }
-		// if s4 {
-		// 	s4 = false
-		// }
 	}
 	status = false
 	return status, nil

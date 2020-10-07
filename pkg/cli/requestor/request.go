@@ -36,7 +36,7 @@ func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []strin
 		ro.sendQName = "CI_SEND"
 	}
 	if ro.recieveQName == "" {
-		ro.recieveQName = fmt.Sprintf("rcv_%s_%s", ro.jenkinsProject, ro.target)
+		ro.recieveQName = fmt.Sprintf("rcv_%s_%s_%s", ro.jenkinsProject, ro.kind, ro.target)
 	}
 	if ro.kind == "" {
 		ro.kind = messages.RequestTypePR
