@@ -202,6 +202,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		cmd4 := []string{"git", "clone", w.repoURL}
 		w.printAndStreamCommand(cmd4)
 		w.runCommand(cmd4, false)
+		os.Chdir(w.repoDir)
 		cmd5 := []string{"git", "fetch", fetchParam}
 		w.printAndStreamCommand(cmd5)
 		w.runCommand(cmd5, false)
