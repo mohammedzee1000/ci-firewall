@@ -63,3 +63,24 @@ cp -avrf ./ci-firewall ../bin/
 cd ..
 ci-firewall work --env "OCP_API_URL=https://api.example.com:6443" --env "OC_DOWNLOAD_URL=https://downloads-openshift-console.apps.example.com"
 ```
+
+## Using the cli
+
+### Requesting a build
+
+Main Command:
+
+```bash
+ $ ci-firewall request [params]
+ the result
+```
+
+#### Parameters
+
+- *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
+- *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`)
+- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target` (param `recievequeue`)
+- *Jenkins Project*: The name of jenkins project/job (env `JOB_NAME` or param `--jenkinsproject`)
+- *Jenkins Token*: The shared token for the jenkins project (env `JOB_TOKEN` or param `--jenkinstoken`)
+- *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
+- *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
