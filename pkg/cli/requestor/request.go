@@ -25,6 +25,7 @@ type RequestOptions struct {
 	runScript      string
 	setupScript    string
 	recieveQName   string
+	timeout        time.Duration
 }
 
 func NewRequestOptions() *RequestOptions {
@@ -105,7 +106,7 @@ func (ro *RequestOptions) Run() (err error) {
 			}
 			return fmt.Errorf("failed due to err %w", err)
 		}
-	case <-time.After(12 * time.Minute):
+	case <-time.After(ro.timeout):
 		if err := ro.requestor.ShutDown(); err != nil {
 			return fmt.Errorf("error during shutdown: %w", err)
 		}
@@ -133,5 +134,6 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.target, "target", "", "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "run", "", "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.setupScript, "setup", "", "the setup script to run")
+	cmd.Flags().DurationVar(&o.timeout, "", 15*time.Minute, "timeout duration ")
 	return cmd
 }
