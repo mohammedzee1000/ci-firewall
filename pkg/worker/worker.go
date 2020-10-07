@@ -224,7 +224,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 func (w *Worker) testing() (bool, error) {
 	status := true
 	var err error
-	err = w.cleanupOldBuilds()
+	err = w.fetchRepo()
 	if err != nil {
 		return false, fmt.Errorf("unable to fetch repo %w", err)
 	}
