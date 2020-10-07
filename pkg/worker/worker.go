@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
-	"strconv"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
@@ -114,23 +112,10 @@ func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
 }
 
 func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (bool, error) {
+	var err error
 	if oldsuccess {
 		//get jenkins user info
-		u, err := user.Lookup("jenkins")
-		if err != nil {
-			return false, fmt.Errorf("unable to get user info for jenkins %w", err)
-		}
-		uid, err := strconv.Atoi(u.Uid)
-		if err != nil {
-			return false, fmt.Errorf("failed to parse uid %w", err)
-		}
-		gid, err := strconv.Atoi(u.Gid)
-		if err != nil {
-			return false, fmt.Errorf("failed to parse gid %w", err)
-		}
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-		cmd.SysProcAttr.Credential.Uid = uint32(uid)
-		cmd.SysProcAttr.Credential.Gid = uint32(gid)
 		if stream {
 			done := make(chan error)
 			r, _ := cmd.StdoutPipe()
@@ -219,7 +204,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
-		cmd4 := []string{"git", "clone", w.repoURL, w.repoDir}
+		cmd4 := []string{"su", "jenkins", "git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd4)
 		s4, err := w.runCommand(true, cmd4, false)
 		if err != nil {
