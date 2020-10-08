@@ -106,7 +106,7 @@ func (ro *RequestOptions) Run() (err error) {
 			if err := ro.requestor.ShutDown(); err != nil {
 				return fmt.Errorf("error during shutdown: %w", err)
 			}
-			return fmt.Errorf("failed due to err %w", err)
+			return fmt.Errorf("failed due to err %w", done)
 		}
 	case <-time.After(ro.timeout):
 		if err := ro.requestor.ShutDown(); err != nil {

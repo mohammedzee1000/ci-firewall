@@ -272,7 +272,6 @@ func (w *Worker) testing() (bool, error) {
 			}
 		}
 	}
-	status = false
 	return status, nil
 }
 
