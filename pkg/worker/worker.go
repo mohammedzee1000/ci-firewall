@@ -143,6 +143,7 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 			if cmd.ProcessState.ExitCode() != 0 {
 				return false, nil
 			}
+			return true, nil
 		} else {
 			out, err := cmd.CombinedOutput()
 			if err != nil {
