@@ -45,7 +45,8 @@ Apart from these core parameters, which will be sent by requestor, the following
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
 - *MultiNode*: If set to true, must have a test node db (see multinode testing below). Can be passed to cli
-- Other than this, to be safe, run the following on jenkins worker nodes `git config --global core.sharedRepository all`
+
+**NOTE**: When the worker is run, as below, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it.
 
 ### Build Script
 
@@ -54,6 +55,7 @@ Here is an example of a jenkins build script
 ```bash
 WORKDIR="${KIND}_${TARGET}"
 rm -rf $WORKDIR
+
 mkdir -p $WORKDIR/{bin,repo}
 PATH="$PATH:`pwd`/$WORKDIR/bin"
 cd $WORKDIR
@@ -63,7 +65,7 @@ git checkout main
 go build -mod=vendor cmd/ci-firewall/ci-firewall.go
 cp -avrf ./ci-firewall ../bin/
 cd ..
-ci-firewall work --env "OCP_API_URL=https://api.example.com:6443" --env "OC_DOWNLOAD_URL=https://downloads-openshift-console.apps.example.com"
+script --return -c "ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null
 ```
 
 ## Using the cli

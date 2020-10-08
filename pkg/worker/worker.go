@@ -158,44 +158,51 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 	return false, nil
 }
 
-func (w *Worker) fetchRepo() error {
-	// Setup some envs we need
+func (w *Worker) fetchRepo() (bool, error) {
+	//TODO: handle printAndStream errors
 	var chkout string
-	var prrefspec string
-	if w.kind == messages.RequestTypePR {
-		chkout = fmt.Sprintf("pr%s", w.target)
-		prrefspec = fmt.Sprintf("pull/%s/head:%s", w.target, chkout)
-	} else if w.kind == messages.RequestTypeBranch {
-		chkout = w.target
-		prrefspec = ""
-	} else if w.kind == messages.RequestTypeTag {
-		chkout = fmt.Sprintf("tags/%s", w.target)
-		prrefspec = ""
-	} else {
-		chkout = ""
-	}
-	w.printAndStream(chkout)
-	w.printAndStream(prrefspec)
 	//Get the repo
 	wd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("unable to get wd %w", err)
+		return false, fmt.Errorf("unable to get wd %w", err)
 	}
-	w.printAndStream("Getting repo")
+	w.printAndStream("Getting repo...")
 	cmd1 := []string{"git", "clone", w.repoURL, filepath.Join(wd, w.workdir, w.repoDir)}
 	w.printAndStreamCommand(cmd1)
 	s1, err := w.runCommand(true, cmd1, false)
 	if err != nil {
-		return fmt.Errorf("failed to clone %w", err)
+		return false, fmt.Errorf("failed to clone %w", err)
 	}
-	os.Chdir(w.repoDir)
-	cmd2 := []string{"git", "fetch", "origin", prrefspec}
-	w.printAndStreamCommand(cmd2)
-	_, err = w.runCommand(s1, cmd2, false)
+	err = os.Chdir(w.repoDir)
 	if err != nil {
-		return fmt.Errorf("failed to clone")
+		return false, fmt.Errorf("failed to switch to repodir %w", err)
 	}
-	return nil
+	if w.kind == messages.RequestTypePR {
+		chkout = fmt.Sprintf("pr%s", w.target)
+		cmd2 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
+		w.printAndStreamCommand(cmd2)
+		s1, err = w.runCommand(s1, cmd2, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch PR %w", err)
+		}
+	} else if w.kind == messages.RequestTypeBranch {
+		chkout = w.target
+	} else if w.kind == messages.RequestTypeTag {
+		chkout = fmt.Sprintf("tags/%s", w.target)
+	} else {
+		return false, fmt.Errorf("unknown kind")
+	}
+	cmd3 := []string{"git", "checkout", chkout}
+	w.printAndStreamCommand(cmd3)
+	s3, err := w.runCommand(s1, cmd3, false)
+	if err != nil {
+		return false, fmt.Errorf("failed to checkout %s, %w", chkout, err)
+	}
+	err = os.Chdir(wd)
+	if err != nil {
+		return false, fmt.Errorf("failed to switch back %w", err)
+	}
+	return s3, nil
 }
 
 func (w *Worker) runTests(nd *node.Node) (bool, error) {
@@ -203,9 +210,9 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 	//if we need to run the tests on some node, do this here
 	if nd != nil {
 		//Setup node
-
+		return false, fmt.Errorf("not implemented")
 	} else {
-		//non node testing happens here (in-place)
+		//non multios testing happens here (in-place)
 		//* set required envs
 		w.envVars["BASE_OS"] = "linux"
 		w.envVars["ARCH"] = "amd64"
@@ -213,7 +220,20 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
+		cmdsetup := []string{"sh", w.setupScript}
+		w.printAndStreamCommand(cmdsetup)
+		ssetup, err := w.runCommand(true, cmdsetup, true)
+		if err != nil {
+			return false, fmt.Errorf("failed to run setup script %w", err)
 
+		}
+		cmdrun := []string{"sh", w.runScript}
+		w.printAndStreamCommand(cmdrun)
+		srun, err := w.runCommand(ssetup, cmdrun, true)
+		if err != nil {
+			return false, fmt.Errorf("failed to run run script %w", err)
+		}
+		status = srun
 	}
 	return status, nil
 }
@@ -222,28 +242,30 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 func (w *Worker) testing() (bool, error) {
 	status := true
 	var err error
-	err = w.fetchRepo()
+	s1, err := w.fetchRepo()
 	if err != nil {
 		return false, fmt.Errorf("unable to fetch repo %w", err)
 	}
-	if w.multiNode {
-		w.NodeList, err = node.NodeListFromDir("../test-nodes")
-		if err != nil {
-			return false, err
-		}
-		for _, nd := range w.NodeList {
-			success, err := w.runTests(&nd)
+	if s1 {
+		if w.multiNode {
+			w.NodeList, err = node.NodeListFromDir("../test-nodes")
 			if err != nil {
 				return false, err
 			}
-			if status {
-				status = success
+			for _, nd := range w.NodeList {
+				success, err := w.runTests(&nd)
+				if err != nil {
+					return false, err
+				}
+				if status {
+					status = success
+				}
 			}
-		}
-	} else {
-		status, err = w.runTests(nil)
-		if err != nil {
-			return false, err
+		} else {
+			status, err = w.runTests(nil)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 	status = false
