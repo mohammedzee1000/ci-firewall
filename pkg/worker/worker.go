@@ -140,6 +140,7 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 			if err != nil {
 				return false, err
 			}
+			cmd.Wait()
 			if cmd.ProcessState.ExitCode() != 0 {
 				return false, nil
 			}
@@ -288,17 +289,17 @@ func (w *Worker) Run() error {
 	if err := w.initQueues(); err != nil {
 		return err
 	}
-	if err := w.sendBuildInfo(); err != nil {
-		return fmt.Errorf("failed to send build info %w", err)
-	}
+	// if err := w.sendBuildInfo(); err != nil {
+	// 	return fmt.Errorf("failed to send build info %w", err)
+	// }
 	success, err := w.testing()
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
 	fmt.Printf("Success : %t\n", success)
-	if err := w.sendStatusMessage(success); err != nil {
-		return fmt.Errorf("failed to send status message %w", err)
-	}
+	// if err := w.sendStatusMessage(success); err != nil {
+	// 	return fmt.Errorf("failed to send status message %w", err)
+	// }
 	return nil
 }
 
