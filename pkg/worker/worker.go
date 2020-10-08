@@ -30,10 +30,10 @@ type Worker struct {
 	envFile         string
 	repoDir         string
 	NodeList        node.NodeList
-	multiNode       bool
+	multios         bool
 }
 
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject, kind, repoURL, target, setupScript, runScript, rcvQueueName, workdir string, envVars map[string]string, jenkinsBuild int, multiNode bool) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject, kind, repoURL, target, setupScript, runScript, rcvQueueName, workdir string, envVars map[string]string, jenkinsBuild int, multiOS bool) *Worker {
 	w := &Worker{
 		rcvq:            queue.NewAMQPQueue(amqpURI, rcvQueueName),
 		kind:            kind,
@@ -49,7 +49,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		envVars:         envVars,
 		envFile:         "env.sh",
 		repoDir:         "repo",
-		multiNode:       multiNode,
+		multios:         multiOS,
 	}
 	return w
 }
@@ -94,13 +94,13 @@ func (w *Worker) sendBuildInfo() error {
 
 func (w *Worker) printAndStream(msg string) error {
 	fmt.Println(msg)
-	// lm := messages.NewLogsMessage(w.jenkinsBuild, msg)
-	// err := w.rcvq.Publish(
-	// 	false, lm,
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to stream log message %w", err)
-	// }
+	lm := messages.NewLogsMessage(w.jenkinsBuild, msg)
+	err := w.rcvq.Publish(
+		false, lm,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to stream log message %w", err)
+	}
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (w *Worker) testing() (bool, error) {
 		return false, fmt.Errorf("unable to fetch repo %w", err)
 	}
 	if s1 {
-		if w.multiNode {
+		if w.multios {
 			w.NodeList, err = node.NodeListFromDir("../test-nodes")
 			if err != nil {
 				return false, err
@@ -289,17 +289,17 @@ func (w *Worker) Run() error {
 	if err := w.initQueues(); err != nil {
 		return err
 	}
-	// if err := w.sendBuildInfo(); err != nil {
-	// 	return fmt.Errorf("failed to send build info %w", err)
-	// }
+	if err := w.sendBuildInfo(); err != nil {
+		return fmt.Errorf("failed to send build info %w", err)
+	}
 	success, err := w.testing()
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
 	fmt.Printf("Success : %t\n", success)
-	// if err := w.sendStatusMessage(success); err != nil {
-	// 	return fmt.Errorf("failed to send status message %w", err)
-	// }
+	if err := w.sendStatusMessage(success); err != nil {
+		return fmt.Errorf("failed to send status message %w", err)
+	}
 	return nil
 }
 

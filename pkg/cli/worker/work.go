@@ -31,7 +31,7 @@ type WorkOptions struct {
 	workdir         string
 	envVarsArr      []string
 	envVars         map[string]string
-	multiNode       bool
+	multiOS         bool
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -100,7 +100,7 @@ func (wo *WorkOptions) Validate() (err error) {
 
 func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.workdir, wo.envVars, wo.jenkinsBuild, wo.multiNode,
+		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.workdir, wo.envVars, wo.jenkinsBuild, wo.multiOS,
 	)
 	err = wo.worker.Run()
 	if err != nil {
@@ -134,7 +134,7 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "run", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.setupScript, "setup", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
-	cmd.Flags().BoolVar(&o.multiNode, "multinode", false, "multinode is used to run tests on different nodes, see docs")
+	cmd.Flags().BoolVar(&o.multiOS, "multios", false, "multios is used to run tests on different nodes with mutiple OSes, see docs")
 	cmd.Flags().StringVar(&o.workdir, "workdir", "", "the work directory")
 	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	return cmd

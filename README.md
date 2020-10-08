@@ -44,7 +44,9 @@ Apart from these core parameters, which will be sent by requestor, the following
 - *AMQP URI*: The full URL of amqp server, including username/password and virtual servers, if any. looks for `AMQP_URI` env if set or can be passed as argument to cli.
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
-- *MultiNode*: If set to true, must have a test node db (see multinode testing below). Can be passed to cli
+- *Multi OS(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli
+
+More details down below.
 
 **NOTE**: When the worker is run, as below, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it.
 
@@ -79,7 +81,7 @@ Main Command:
  the result
 ```
 
-#### Parameters
+#### Request Parameters
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
 - *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`)
@@ -92,3 +94,18 @@ Main Command:
 - *Setup Script*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
 - *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 12 minutes. (param `--timeout`)
+
+### Working on a build
+
+```bash
+ $ ci-firewall work [params]
+ the result
+```
+
+#### Work Parameters
+
+TODO
+
+## MultiOS
+
+TODO
