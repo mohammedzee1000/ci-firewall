@@ -70,6 +70,8 @@ cd ..
 script --return -c "ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null
 ```
 
+**WARNING**: It is absolutely nessasary to run the worker inside a `script` as shown above so that it gets a pseudo terminal. Jenkins runs without a pseudoterminal, which can cause some of the operations to fail !!
+
 ## Using the cli
 
 ### Requesting a build
