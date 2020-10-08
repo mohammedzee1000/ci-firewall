@@ -220,6 +220,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			fmt.Printf("%s=%s", k, v)
 			os.Setenv(k, v)
 		}
+		os.Chdir(w.repoDir)
 		cmdsetup := []string{"sh", w.setupScript}
 		w.printAndStreamCommand(cmdsetup)
 		ssetup, err := w.runCommand(true, cmdsetup, true)
