@@ -5,7 +5,7 @@ Used to run CI behind firewalls and collect result
 ## Pre-requisites
 
 1. A publically accessible AMQP Message Queue like RabbitMQ. This should have a queue set aside to send the build requests
-2. A public facing CI system or any place to download and run the requestor, which will request a build and recieve the result. It should be setup appropriately (see below)
+2. A public facing CI system, which preferably allows for secrets for certain secrets (such as remote-build token and amqp URI) or any place to download and run the requestor, which will request a build and recieve the result. The requestor should be setup correctly. (see below)
 3. A jenkins (behind your firewall) with rabbitmq-build-trigger [plugin](https://plugins.jenkins.io/rabbitmq-build-trigger/). The plugin should be configured to listen on the send queue, which should already exist on the server.
 4. A Jenkins job/project which downloads the worker, and runs it with the appropriate parameters (see below). The job should be configured with a set of parameters.
 
