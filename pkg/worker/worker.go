@@ -156,6 +156,7 @@ func (w *Worker) runCommand(oldsuccess bool, cmdArgs []string, stream bool) (boo
 		}
 		return true, nil
 	}
+	w.printAndStream("previous command failed or skipped, skipping")
 	return false, nil
 }
 
