@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 )
 
@@ -37,6 +38,7 @@ func (le *LocalExecutor) ExitCode() int {
 }
 
 func (le *LocalExecutor) SetEnvs(envVars map[string]string) error {
+	le.cmd.Env = os.Environ()
 	envVars["BASE_OS"] = "linux"
 	envVars["ARCH"] = "amd64"
 	for k, v := range envVars {

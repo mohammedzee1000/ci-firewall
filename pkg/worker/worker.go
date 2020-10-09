@@ -171,9 +171,9 @@ func (w *Worker) getCommands() [][]string {
 	//3 if 3 done, else 4
 	cmds = append(cmds, []string{"git", "checkout", chkout})
 	//5
-	cmds = append(cmds, []string{"sh", w.setupScript})
+	cmds = append(cmds, []string{".", w.setupScript})
 	//5
-	cmds = append(cmds, []string{"sh", w.runScript})
+	cmds = append(cmds, []string{".", w.runScript})
 	return cmds
 }
 
