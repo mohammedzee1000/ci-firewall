@@ -1,33 +1,21 @@
 package node
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"golang.org/x/crypto/ssh"
+)
 
 type Node struct {
-	OS          string
+	Name        string
 	User        string
 	NIP         string
 	BaseOS      string
 	Arch        string
 	SSHPAssword string
-	sshKey      string
-}
-
-func (nd *Node) NodeSSHCommand(cmdArgs string) []string {
-	var newCmdArgs []string
-	//TODO impl this
-	newCmdArgs = append(newCmdArgs, fmt.Sprintf("\"%s\"", cmdArgs))
-	return newCmdArgs
-}
-
-func (nd *Node) GenerateEnvFile(envfile string, origvalues map[string]string) error {
-	//TODO impl
-	return nil
-}
-
-func (nd *Node) SCPToWorkDirCommand(what string, workdir string) []string {
-	var cmdArgs []string
-	//TODO implement this
-	return cmdArgs
+	sshKey      ssh.Signer
 }
 
 type NodeList []Node
@@ -35,5 +23,11 @@ type NodeList []Node
 func NodeListFromDir(nodedir string) (NodeList, error) {
 	var nl NodeList
 	//TODO implement this
+	err := filepath.Walk(nodedir, func(path string, info os.FileInfo, err error) error {
+		return nil
+	})
+	if err != nil {
+		return nl, fmt.Errorf("unable to find node files %w", err)
+	}
 	return nl, nil
 }
