@@ -48,14 +48,6 @@ func (wo *WorkOptions) envVarsArrToEnvVars() error {
 		}
 		wo.envVars[res[0]] = res[1]
 	}
-	osenv := os.Environ()
-	for _, item := range osenv {
-		res := strings.Split(item, "=")
-		if len(res) != 2 {
-			return fmt.Errorf("unable to split envvar, is it in the form FOO=BAR?")
-		}
-		wo.envVars[res[0]] = res[1]
-	}
 	return nil
 }
 
