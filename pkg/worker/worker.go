@@ -3,6 +3,8 @@ package worker
 import (
 	"bufio"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -27,7 +29,6 @@ type Worker struct {
 	envVars         map[string]string
 	envFile         string
 	repoDir         string
-	NodeList        node.NodeList
 	multios         bool
 }
 
@@ -45,6 +46,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		jenkinsUser:     jenkinsUser,
 		jenkinsPassword: jenkinsPassword,
 		envVars:         envVars,
+		workdir:         workdir,
 		envFile:         "env.sh",
 		repoDir:         "repo",
 		multios:         multiOS,
@@ -148,67 +150,29 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 	return false, nil
 }
 
-// func (w *Worker) fetchRepo() (bool, error) {
-// 	//TODO: handle printAndStream errors
-// 	var chkout string
-// 	//Get the repo
-// 	wd, err := os.Getwd()
-// 	if err != nil {
-// 		return false, fmt.Errorf("unable to get wd %w", err)
-// 	}
-// 	w.printAndStream("Getting repo...")
-// 	cmd1 := []string{"git", "clone", w.repoURL, filepath.Join(wd, w.workdir, w.repoDir)}
-// 	w.printAndStreamCommand(cmd1)
-// 	s1, err := w.runCommand(true, cmd1, false)
-// 	if err != nil {
-// 		return false, fmt.Errorf("failed to clone %w", err)
-// 	}
-// 	err = os.Chdir(w.repoDir)
-// 	if err != nil {
-// 		return false, fmt.Errorf("failed to switch to repodir %w", err)
-// 	}
-// 	if w.kind == messages.RequestTypePR {
-// 		chkout = fmt.Sprintf("pr%s", w.target)
-// 		cmd2 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
-// 		w.printAndStreamCommand(cmd2)
-// 		s1, err = w.runCommand(s1, cmd2, false)
-// 		if err != nil {
-// 			return false, fmt.Errorf("failed to fetch PR %w", err)
-// 		}
-// 	} else if w.kind == messages.RequestTypeBranch {
-// 		chkout = w.target
-// 	} else if w.kind == messages.RequestTypeTag {
-// 		chkout = fmt.Sprintf("tags/%s", w.target)
-// 	} else {
-// 		return false, fmt.Errorf("unknown kind")
-// 	}
-// 	cmd3 := []string{"git", "checkout", chkout}
-// 	w.printAndStreamCommand(cmd3)
-// 	s3, err := w.runCommand(s1, cmd3, false)
-// 	if err != nil {
-// 		return false, fmt.Errorf("failed to checkout %s, %w", chkout, err)
-// 	}
-// 	err = os.Chdir(wd)
-// 	if err != nil {
-// 		return false, fmt.Errorf("failed to switch back %w", err)
-// 	}
-// 	return s3, nil
-// }
-
 func (w *Worker) getCommands() [][]string {
 	var chkout string
 	var cmds [][]string
-	cmds = append(cmds, []string{"git", "clone", w.repoDir, w.workdir})
+	//0
+	cmds = append(cmds, []string{"rm", "-rf", w.workdir})
+	//1
+	cmds = append(cmds, []string{"mkdir", w.workdir})
+	//2
+	cmds = append(cmds, []string{"git", "clone", w.repoURL, w.repoDir})
 	if w.kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.target)
+		//potential 3
 		cmds = append(cmds, []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)})
 	} else if w.kind == messages.RequestTypeBranch {
 		chkout = w.target
 	} else if w.kind == messages.RequestTypeTag {
 		chkout = fmt.Sprintf("tags/%s", w.target)
 	}
+	//3 if 3 done, else 4
 	cmds = append(cmds, []string{"git", "checkout", chkout})
+	//5
 	cmds = append(cmds, []string{"sh", w.setupScript})
+	//5
 	cmds = append(cmds, []string{"sh", w.runScript})
 	return cmds
 }
@@ -222,37 +186,98 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 	// If we have node, then we need to use node executor
 	if nd != nil {
 		w.printAndStream(fmt.Sprintf("running tests on node %s", nd.Name))
+
+		//remove old wd
 		w.printAndStreamCommand(cmds[0])
-		ex1, err := executor.NewNodeExecutor(nd, cmds[0])
+		ex0, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[0])
 		if err != nil {
-			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[0], nd.Name, err)
+			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[1], nd.Name, err)
+		}
+		ex0.SetEnvs(w.envVars)
+		success, err = w.runCommand(true, ex0)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[1])
+		}
+		//create new wd
+		w.printAndStreamCommand(cmds[1])
+		ex1, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[1])
+		if err != nil {
+			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[1], nd.Name, err)
 		}
 		ex1.SetEnvs(w.envVars)
-		success, err = w.runCommand(true, ex1)
+		success, err = w.runCommand(success, ex1)
 		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[0])
+			return false, fmt.Errorf("failed to execute command %v", cmds[1])
 		}
-		for _, cmd := range cmds {
-			ex, err := executor.NewNodeExecutor(nd, cmd)
+		//clone repo
+		w.printAndStreamCommand(cmds[2])
+		ex2, err := executor.NewNodeExecutorWithWorkdir(nd, w.workdir, cmds[2])
+		if err != nil {
+			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[2], nd.Name, err)
+		}
+		ex2.SetEnvs(w.envVars)
+		success, err = w.runCommand(success, ex2)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[2])
+		}
+		newwd := filepath.Join(w.workdir, w.repoDir)
+		for _, cmd := range cmds[3:] {
+			w.printAndStreamCommand(cmd)
+			ex, err := executor.NewNodeExecutorWithWorkdir(nd, newwd, cmd)
 			if err != nil {
 				return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w ", cmd, nd.Name, err)
 			}
 			ex.SetEnvs(w.envVars)
 			success, err = w.runCommand(success, ex)
 			if err != nil {
-				return false, fmt.Errorf("failed to execute command %v", cmds[0])
+				return false, fmt.Errorf("failed to execute command %v", cmd)
 			}
 		}
-	} else {
-		w.printAndStream("running tests locally")
-		w.printAndStreamCommand(cmds[0])
-		ex1 := executor.NewLocalExecutor(cmds[0])
-		ex1.SetEnvs(w.envVars)
-		success, err = w.runCommand(true, ex1)
+		//TODO artifact to save, if any should get synced here
+		//final delete workdir (repeat first command)
+		exd, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[0])
+		exd.SetEnvs(w.envVars)
+		success, err := w.runCommand(success, exd)
 		if err != nil {
 			return false, fmt.Errorf("failed to execute command %v", cmds[0])
 		}
-		for _, cmd := range cmds[1:] {
+		status = success
+	} else {
+		w.printAndStream("running tests locally")
+		w.printAndStreamCommand(cmds[0])
+		ex0 := executor.NewLocalExecutor(cmds[0])
+		//remove old workdir
+		success, err = w.runCommand(true, ex0)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[0])
+		}
+		//create new workdir
+		w.printAndStreamCommand(cmds[1])
+		ex1 := executor.NewLocalExecutor(cmds[1])
+		ex1.SetEnvs(w.envVars)
+		success, err = w.runCommand(success, ex1)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[1])
+		}
+		//cd into workdir (possible only in localenv)
+		err = os.Chdir(w.workdir)
+		if err != nil {
+			return false, fmt.Errorf("unable to cd into workdir %w", err)
+		}
+		//clone repo
+		w.printAndStreamCommand(cmds[2])
+		ex2 := executor.NewLocalExecutor(cmds[2])
+		ex2.SetEnvs(w.envVars)
+		success, err = w.runCommand(success, ex2)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[2])
+		}
+		//cd into repo dir. Only possible in localenv
+		err = os.Chdir(w.repoDir)
+		if err != nil {
+			return false, fmt.Errorf("unable to cd into repodir %w", err)
+		}
+		for _, cmd := range cmds[3:] {
 			w.printAndStreamCommand(cmd)
 			ex := executor.NewLocalExecutor(cmd)
 			ex.SetEnvs(w.envVars)
@@ -261,6 +286,17 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 				return false, fmt.Errorf("failed to run command %v", cmd)
 			}
 		}
+		err = os.Chdir("../..")
+		if err != nil {
+			return false, fmt.Errorf("unable to cd into workdirs parent %w", err)
+		}
+		exd := executor.NewLocalExecutor(cmds[0])
+		exd.SetEnvs(w.envVars)
+		success, err = w.runCommand(success, exd)
+		if err != nil {
+			return false, fmt.Errorf("failed to execute command %v", cmds[0])
+		}
+		status = success
 	}
 	return status, nil
 }
@@ -275,19 +311,19 @@ func (w *Worker) testing() (bool, error) {
 	// }
 	// if s1 {
 	if w.multios {
-		w.NodeList, err = node.NodeListFromDir("../test-nodes")
-		if err != nil {
-			return false, err
-		}
-		for _, nd := range w.NodeList {
-			success, err := w.runTests(&nd)
-			if err != nil {
-				return false, err
-			}
-			if status {
-				status = success
-			}
-		}
+		// w.NodeList, err = node.NodeListFromDir("../test-nodes")
+		// if err != nil {
+		// 	return false, err
+		// }
+		// for _, nd := range w.NodeList {
+		// 	success, err := w.runTests(&nd)
+		// 	if err != nil {
+		// 		return false, err
+		// 	}
+		// 	if status {
+		// 		status = success
+		// 	}
+		// }
 	} else {
 		status, err = w.runTests(nil)
 		if err != nil {
