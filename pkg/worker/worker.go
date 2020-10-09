@@ -222,6 +222,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 	// If we have node, then we need to use node executor
 	if nd != nil {
 		w.printAndStream(fmt.Sprintf("running tests on node %s", nd.Name))
+		w.printAndStreamCommand(cmds[0])
 		ex1, err := executor.NewNodeExecutor(nd, cmds[0])
 		if err != nil {
 			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[0], nd.Name, err)
@@ -244,6 +245,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		}
 	} else {
 		w.printAndStream("running tests locally")
+		w.printAndStreamCommand(cmds[0])
 		ex1 := executor.NewLocalExecutor(cmds[0])
 		ex1.SetEnvs(w.envVars)
 		success, err = w.runCommand(true, ex1)
@@ -251,6 +253,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("failed to execute command %v", cmds[0])
 		}
 		for _, cmd := range cmds[1:] {
+			w.printAndStreamCommand(cmd)
 			ex := executor.NewLocalExecutor(cmd)
 			ex.SetEnvs(w.envVars)
 			success, err = w.runCommand(success, executor.NewLocalExecutor(cmd))
