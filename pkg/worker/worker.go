@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -181,121 +180,78 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 	var status bool
 	var success bool
 	var err error
-	//get the command list to run
-	cmds := w.getCommands()
+	var chkout string
+
 	// If we have node, then we need to use node executor
 	if nd != nil {
-		w.printAndStream(fmt.Sprintf("running tests on node %s", nd.Name))
-		//remove old wd
-		w.printAndStreamCommand(cmds[0])
-		ex0, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[0])
-		if err != nil {
-			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[1], nd.Name, err)
-		}
-		ex0.SetEnvs(w.envVars)
-		success, err = w.runCommand(true, ex0)
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[1])
-		}
-		//create new wd
-		w.printAndStreamCommand(cmds[1])
-		ex1, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[1])
-		if err != nil {
-			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[1], nd.Name, err)
-		}
-		ex1.SetEnvs(w.envVars)
-		success, err = w.runCommand(success, ex1)
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[1])
-		}
-		//clone repo
-		w.printAndStreamCommand(cmds[2])
-		ex2, err := executor.NewNodeExecutorWithWorkdir(nd, w.workdir, cmds[2])
-		if err != nil {
-			return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w", cmds[2], nd.Name, err)
-		}
-		ex2.SetEnvs(w.envVars)
-		success, err = w.runCommand(success, ex2)
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[2])
-		}
-		newwd := filepath.Join(w.workdir, w.repoDir)
-		for _, cmd := range cmds[3:] {
-			w.printAndStreamCommand(cmd)
-			ex, err := executor.NewNodeExecutorWithWorkdir(nd, newwd, cmd)
-			if err != nil {
-				return false, fmt.Errorf("unable to initialize executor for command %v on node %s %w ", cmd, nd.Name, err)
-			}
-			ex.SetEnvs(w.envVars)
-			success, err = w.runCommand(success, ex)
-			if err != nil {
-				return false, fmt.Errorf("failed to execute command %v", cmd)
-			}
-		}
-		//TODO artifact to save, if any should get synced here
-		//final delete workdir (repeat first command)
-		exd, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[0])
-		exd.SetEnvs(w.envVars)
-		success, err := w.runCommand(success, exd)
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[0])
-		}
-		status = success
+
 	} else {
+		//local executor
 		w.printAndStream("running tests locally")
-		w.printAndStreamCommand(cmds[0])
-		ex0 := executor.NewLocalExecutor(cmds[0])
-		//remove old workdir
-		success, err = w.runCommand(true, ex0)
+		//1. make sub workdir
+		cmd1 := []string{"mkdir", w.workdir}
+		w.printAndStreamCommand(cmd1)
+		ex1 := executor.NewLocalExecutor(cmd1)
+		success, err = w.runCommand(true, ex1)
 		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[0])
+			return false, fmt.Errorf("failed to create subworkdir %w", err)
 		}
-		//create new workdir
-		w.printAndStreamCommand(cmds[1])
-		ex1 := executor.NewLocalExecutor(cmds[1])
-		ex1.SetEnvs(w.envVars)
-		success, err = w.runCommand(success, ex1)
+		//2. cd into workdir
+		w.printAndStream("changing into subworkdir")
+		os.Chdir(w.workdir)
+		//3. clone the repo
+		cmd3 := []string{"git", "clone", w.repoURL, w.repoDir}
+		w.printAndStreamCommand(cmd3)
+		ex3 := executor.NewLocalExecutor(cmd3)
+		success, err = w.runCommand(success, ex3)
 		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[1])
+			return false, fmt.Errorf("failed to clone repo %w", err)
 		}
-		//cd into workdir (possible only in localenv)
-		err = os.Chdir(w.workdir)
-		if err != nil {
-			return false, fmt.Errorf("unable to cd into workdir %w", err)
-		}
-		//clone repo
-		w.printAndStreamCommand(cmds[2])
-		ex2 := executor.NewLocalExecutor(cmds[2])
-		ex2.SetEnvs(w.envVars)
-		success, err = w.runCommand(success, ex2)
-		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[2])
-		}
-		//cd into repo dir. Only possible in localenv
-		err = os.Chdir(w.repoDir)
-		if err != nil {
-			return false, fmt.Errorf("unable to cd into repodir %w", err)
-		}
-		for _, cmd := range cmds[3:] {
-			w.printAndStreamCommand(cmd)
-			ex := executor.NewLocalExecutor(cmd)
-			ex.SetEnvs(w.envVars)
-			success, err = w.runCommand(success, executor.NewLocalExecutor(cmd))
+		//4. change to repodi
+		os.Chdir(w.repoDir)
+		//5. Fetch if needed
+		if w.kind == messages.RequestTypePR {
+			chkout = fmt.Sprintf("pr%s", w.target)
+			cmd5 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
+			w.printAndStreamCommand(cmd5)
+			ex5 := executor.NewLocalExecutor(cmd5)
+			success, err = w.runCommand(success, ex5)
 			if err != nil {
-				return false, fmt.Errorf("failed to run command %v", cmd)
+				return false, fmt.Errorf("failed to fetch pr %w", err)
 			}
+		} else if w.kind == messages.RequestTypeBranch {
+			chkout = w.target
+		} else if w.kind == messages.RequestTypeTag {
+			chkout = fmt.Sprintf("tags/%s", w.target)
 		}
-		err = os.Chdir("../..")
+		//6 checkout
+		cmd6 := []string{"git", "checkout", chkout}
+		w.printAndStreamCommand(cmd6)
+		ex6 := executor.NewLocalExecutor(cmd6)
+		success, err = w.runCommand(success, ex6)
 		if err != nil {
-			return false, fmt.Errorf("unable to cd into workdirs parent %w", err)
+			return false, fmt.Errorf("failed to checkout %w", err)
 		}
-		exd := executor.NewLocalExecutor(cmds[0])
-		exd.SetEnvs(w.envVars)
-		success, err = w.runCommand(success, exd)
+		//7 run the setup script
+		cmd7 := []string{"sh", w.setupScript}
+		w.printAndStreamCommand(cmd7)
+		ex7 := executor.NewLocalExecutor(cmd7)
+		success, err = w.runCommand(success, ex7)
 		if err != nil {
-			return false, fmt.Errorf("failed to execute command %v", cmds[0])
+			return false, fmt.Errorf("failed to run setup script")
 		}
-		status = success
+		//8 run run script
+		cmd8 := []string{"sh", w.setupScript}
+		w.printAndStreamCommand(cmd8)
+		ex8 := executor.NewLocalExecutor(cmd8)
+		success, err = w.runCommand(success, ex8)
+		if err != nil {
+			return false, fmt.Errorf("failed to run run script")
+		}
+		//4C. getout of repodir
+		os.Chdir("..")
+		//2C. getout of workdir
+		os.Chdir("..")
 	}
 	return status, nil
 }

@@ -1,5 +1,11 @@
 package node
 
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+)
+
 type Node struct {
 	Name        string `json:"name"`
 	User        string `json:"user"`
@@ -12,4 +18,30 @@ type Node struct {
 
 type NodeList struct {
 	Nodes []Node `json:"nodes"`
+}
+
+func newNode() *Node {
+	return &Node{}
+}
+
+func newNodeList() *NodeList {
+	return &NodeList{}
+}
+
+func NodesFromJson(nodejson []byte) (*NodeList, error) {
+	nl := newNodeList()
+	err := json.Unmarshal(nodejson, nl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal nodeinfo json %w", err)
+	}
+	return nl, nil
+}
+
+func NodeFromFile(filepath string) (*NodeList, error) {
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read nodeinfo from file %w", err)
+	}
+
+	return NodesFromJson(data)
 }
