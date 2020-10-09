@@ -186,7 +186,6 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 	// If we have node, then we need to use node executor
 	if nd != nil {
 		w.printAndStream(fmt.Sprintf("running tests on node %s", nd.Name))
-
 		//remove old wd
 		w.printAndStreamCommand(cmds[0])
 		ex0, err := executor.NewNodeExecutorWithWorkdir(nd, "", cmds[0])
@@ -305,11 +304,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 func (w *Worker) testing() (bool, error) {
 	status := true
 	var err error
-	// s1, err := w.fetchRepo()
-	// if err != nil {
-	// 	return false, fmt.Errorf("unable to fetch repo %w", err)
-	// }
-	// if s1 {
+
 	if w.multios {
 		// w.NodeList, err = node.NodeListFromDir("../test-nodes")
 		// if err != nil {
