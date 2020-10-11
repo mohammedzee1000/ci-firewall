@@ -110,7 +110,6 @@ func (wo *WorkOptions) Run() (err error) {
 			return fmt.Errorf("unable to get node list %w", err)
 		}
 	}
-
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.envVars, wo.jenkinsBuild, nl,
 	)
