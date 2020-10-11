@@ -59,6 +59,7 @@ Any other parameter definitions are on you.
 Here is an example of a jenkins build script
 
 ```bash
+mkdir bin
 PATH="$PATH:`pwd`/bin"
 git clone https://github.com/mohammedzee1000/ci-firewall.git cif
 cd cif
