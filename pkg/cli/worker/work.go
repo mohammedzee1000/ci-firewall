@@ -8,6 +8,7 @@ import (
 	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
+	"github.com/mohammedzee1000/ci-firewall/pkg/node"
 	"github.com/mohammedzee1000/ci-firewall/pkg/worker"
 	"github.com/spf13/cobra"
 )
@@ -28,10 +29,9 @@ type WorkOptions struct {
 	runScript       string
 	setupScript     string
 	recieveQName    string
-	workdir         string
 	envVarsArr      []string
 	envVars         map[string]string
-	multiOS         bool
+	sshNodesFile    string
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -57,9 +57,6 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	}
 	if wo.kind == "" {
 		wo.kind = messages.RequestTypePR
-	}
-	if wo.workdir == "" {
-		wo.workdir = fmt.Sprintf("%s_%s", wo.kind, wo.target)
 	}
 	return wo.envVarsArrToEnvVars()
 }
@@ -95,12 +92,22 @@ func (wo *WorkOptions) Validate() (err error) {
 	if wo.kind != messages.RequestTypePR && wo.kind != messages.RequestTypeBranch && wo.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
+	if wo.sshNodesFile != "" {
+		_, err := os.Stat(wo.sshNodesFile)
+		if err != nil {
+			return fmt.Errorf("error stating sshnodefile %w", err)
+		}
+	}
 	return nil
 }
 
 func (wo *WorkOptions) Run() (err error) {
+	nl, err := node.NodesFromFile(wo.sshNodesFile)
+	if err != nil {
+		return fmt.Errorf("unable to get node list %w", err)
+	}
 	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.workdir, wo.envVars, wo.jenkinsBuild, wo.multiOS,
+		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.envVars, wo.jenkinsBuild, nl,
 	)
 	err = wo.worker.Run()
 	if err != nil {
@@ -132,10 +139,9 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
-	cmd.Flags().StringVar(&o.runScript, "run", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
-	cmd.Flags().StringVar(&o.setupScript, "setup", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
-	cmd.Flags().BoolVar(&o.multiOS, "multios", false, "multios is used to run tests on different nodes with mutiple OSes, see docs")
-	cmd.Flags().StringVar(&o.workdir, "workdir", os.Getenv("WORKDIR"), "the work directory")
+	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
+	cmd.Flags().StringVar(&o.sshNodesFile, "sshnodesfile", "", "sshnodesfile is path of json file containing node information. If provided tests will be done by sshing to the nodes see docs")
 	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	return cmd
 }

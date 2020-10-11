@@ -50,17 +50,16 @@ More details down below.
 
 **NOTE**: When the worker is run, as below, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it.
 
+It is also a good idea to ensure the jenkins job cleans up after itself by enabling `Delete workspace before build starts` and maybe even `Execute concurrent builds if necessary` depending on if your are ok with each build running only after previous build is finished.
+
+Any other parameter definitions are on you.
+
 ### Build Script
 
 Here is an example of a jenkins build script
 
 ```bash
-WORKDIR="${KIND}_${TARGET}"
-rm -rf $WORKDIR
-
-mkdir -p $WORKDIR/{bin,repo}
-PATH="$PATH:`pwd`/$WORKDIR/bin"
-cd $WORKDIR
+PATH="$PATH:`pwd`/bin"
 git clone https://github.com/mohammedzee1000/ci-firewall.git cif
 cd cif
 git checkout main
@@ -89,11 +88,11 @@ Main Command:
 - *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`)
 - *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
 - *Jenkins Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`)
-- *Jenkins Token*: The shared token for the jenkins project. (env `JOB_TOKEN` or param `--jenkinstoken`)
+- *Jenkins Token*: The shared token for the jenkins project. (env `JOB_TOKEN` or param `--jobtoken`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
 - *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
-- *Setup Script*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
+- *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
 - *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 12 minutes. (param `--timeout`)
 

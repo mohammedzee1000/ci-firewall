@@ -37,11 +37,10 @@ func NodesFromJson(nodejson []byte) (*NodeList, error) {
 	return nl, nil
 }
 
-func NodeFromFile(filepath string) (*NodeList, error) {
+func NodesFromFile(filepath string) (*NodeList, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read nodeinfo from file %w", err)
 	}
-
 	return NodesFromJson(data)
 }

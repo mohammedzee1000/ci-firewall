@@ -69,9 +69,6 @@ func (ro *RequestOptions) Validate() (err error) {
 	if ro.runScript == "" {
 		return fmt.Errorf("provide Run Script")
 	}
-	if ro.setupScript == "" {
-		return fmt.Errorf("provide the setup script")
-	}
 	if ro.kind != messages.RequestTypePR && ro.kind != messages.RequestTypeBranch && ro.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
