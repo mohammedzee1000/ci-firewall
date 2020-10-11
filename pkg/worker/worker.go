@@ -319,7 +319,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 }
 
 // 4
-func (w *Worker) testing() (bool, error) {
+func (w *Worker) test() (bool, error) {
 	status := true
 	var err error
 
@@ -359,7 +359,7 @@ func (w *Worker) Run() error {
 	if err := w.sendBuildInfo(); err != nil {
 		return fmt.Errorf("failed to send build info %w", err)
 	}
-	success, err := w.testing()
+	success, err := w.test()
 	if err != nil {
 		return fmt.Errorf("failed to run tests %w", err)
 	}
