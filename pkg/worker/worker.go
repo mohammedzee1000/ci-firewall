@@ -323,7 +323,7 @@ func (w *Worker) test() (bool, error) {
 	status := true
 	var err error
 
-	if len(w.sshNodes.Nodes) > 0 {
+	if w.sshNodes != nil {
 		for _, nd := range w.sshNodes.Nodes {
 			success, err := w.runTests(&nd)
 			if err != nil {

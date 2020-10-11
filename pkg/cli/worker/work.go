@@ -102,10 +102,15 @@ func (wo *WorkOptions) Validate() (err error) {
 }
 
 func (wo *WorkOptions) Run() (err error) {
-	nl, err := node.NodesFromFile(wo.sshNodesFile)
-	if err != nil {
-		return fmt.Errorf("unable to get node list %w", err)
+	var nl *node.NodeList
+	nl = nil
+	if wo.sshNodesFile == "" {
+		nl, err = node.NodesFromFile(wo.sshNodesFile)
+		if err != nil {
+			return fmt.Errorf("unable to get node list %w", err)
+		}
 	}
+
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.envVars, wo.jenkinsBuild, nl,
 	)
