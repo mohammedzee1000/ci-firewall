@@ -104,7 +104,7 @@ func (wo *WorkOptions) Validate() (err error) {
 func (wo *WorkOptions) Run() (err error) {
 	var nl *node.NodeList
 	nl = nil
-	if wo.sshNodesFile == "" {
+	if wo.sshNodesFile != "" {
 		nl, err = node.NodesFromFile(wo.sshNodesFile)
 		if err != nil {
 			return fmt.Errorf("unable to get node list %w", err)
