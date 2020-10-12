@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -46,9 +45,11 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 	} else {
 		return nil, fmt.Errorf("node should either have sshkey or password")
 	}
-	addr := nd.Address
-	if len(strings.Split(addr, ":")) < 2 {
-		addr = fmt.Sprintf("%s:22", addr)
+	var addr string
+	if nd.Port == "" {
+		addr = fmt.Sprintf("%s:22", nd.Address)
+	} else {
+		addr = fmt.Sprintf("%s:%s", nd.Address, nd.Port)
 	}
 	client, err := ssh.Dial("tcp", addr, cfg)
 	if err != nil {
@@ -101,7 +102,7 @@ func (ne *NodeSSHExecutor) Wait() error {
 		if err, ok := err.(*ssh.ExitError); ok {
 			ne.exitCode = err.ExitStatus()
 		} else {
-			errors.New("failed to wait ssh command: " + err.Error())
+			return fmt.Errorf("failed to wait ssh command: %w", err)
 		}
 	}
 	return err
