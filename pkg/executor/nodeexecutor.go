@@ -42,7 +42,11 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		}
 	}
-	client, err := ssh.Dial("tcp", nd.Address, cfg)
+	addr := nd.Address
+	if len(strings.Split(addr, ":")) < 2 {
+		addr = fmt.Sprintf("%s:22", addr)
+	}
+	client, err := ssh.Dial("tcp", addr, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to ssh host %w", err)
 	}
