@@ -124,7 +124,7 @@ The format of th file is as below
             "port": "port of ssh server, optional-defaults to 22",
             "baseos": "linux|windows|macos",
             "arch": "arch of the system eg amd64",
-            "sshpassword": "not recommended but you can provide password of target node",
+            "password": "not recommended but you can provide password of target node",
             "privatekey": "Optional again but either this or password MUST be given."
         }
     ]
