@@ -259,6 +259,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
+		status = success
 	} else {
 		//local executor
 		w.printAndStream("running tests locally")
@@ -315,6 +316,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		}
 		//2C. getout of repodir
 		os.Chdir("..")
+		status = success
 	}
 	return status, nil
 }
