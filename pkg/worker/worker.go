@@ -149,8 +149,8 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 }
 
 func (w *Worker) runTests(nd *node.Node) (bool, error) {
-	var status bool
 	var success bool
+	var status bool
 	var err error
 	var chkout string
 
@@ -167,7 +167,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(true, exd1)
+		status, err = w.runCommand(true, exd1)
 		if err != nil {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
@@ -178,7 +178,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(true, exc1)
+		status, err = w.runCommand(true, exc1)
 		if err != nil {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
@@ -190,7 +190,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(success, ex1)
+		status, err = w.runCommand(status, ex1)
 		if err != nil {
 			return false, fmt.Errorf("unable to clone repo %w", err)
 		}
@@ -203,7 +203,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			if err != nil {
 				return false, fmt.Errorf("unable to create ssh executor %w", err)
 			}
-			success, err = w.runCommand(success, ex3)
+			status, err = w.runCommand(status, ex3)
 			if err != nil {
 				return false, fmt.Errorf("failed to fetch pr %w", err)
 			}
@@ -219,7 +219,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(success, ex4)
+		status, err = w.runCommand(status, ex4)
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
@@ -232,7 +232,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			if err != nil {
 				return false, fmt.Errorf("unable to create ssh executor %w", err)
 			}
-			success, err = w.runCommand(success, ex5)
+			status, err = w.runCommand(status, ex5)
 			if err != nil {
 				return false, fmt.Errorf("failed to run setup script")
 			}
@@ -244,7 +244,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(success, ex6)
+		status, err = w.runCommand(status, ex6)
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
 		}
@@ -255,11 +255,11 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		success, err = w.runCommand(success, exd2)
+		status, err = w.runCommand(status, exd2)
 		if err != nil {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
-		status = success
+		success = status
 	} else {
 		//local executor
 		w.printAndStream("running tests locally")
@@ -267,7 +267,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		cmd1 := []string{"git", "clone", w.repoURL, w.repoDir}
 		w.printAndStreamCommand(cmd1)
 		ex1 := executor.NewLocalExecutor(cmd1)
-		success, err = w.runCommand(true, ex1)
+		status, err = w.runCommand(true, ex1)
 		if err != nil {
 			return false, fmt.Errorf("failed to clone repo %w", err)
 		}
@@ -279,7 +279,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			cmd3 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
 			w.printAndStreamCommand(cmd3)
 			ex3 := executor.NewLocalExecutor(cmd3)
-			success, err = w.runCommand(success, ex3)
+			status, err = w.runCommand(status, ex3)
 			if err != nil {
 				return false, fmt.Errorf("failed to fetch pr %w", err)
 			}
@@ -292,7 +292,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		cmd4 := []string{"git", "checkout", chkout}
 		w.printAndStreamCommand(cmd4)
 		ex4 := executor.NewLocalExecutor(cmd4)
-		success, err = w.runCommand(success, ex4)
+		status, err = w.runCommand(status, ex4)
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
@@ -301,7 +301,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			cmd5 := []string{"sh", w.setupScript}
 			w.printAndStreamCommand(cmd5)
 			ex5 := executor.NewLocalExecutor(cmd5)
-			success, err = w.runCommand(success, ex5)
+			status, err = w.runCommand(status, ex5)
 			if err != nil {
 				return false, fmt.Errorf("failed to run setup script")
 			}
@@ -310,15 +310,15 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		cmd6 := []string{"sh", w.runScript}
 		w.printAndStreamCommand(cmd6)
 		ex6 := executor.NewLocalExecutor(cmd6)
-		success, err = w.runCommand(success, ex6)
+		status, err = w.runCommand(status, ex6)
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
 		}
 		//2C. getout of repodir
 		os.Chdir("..")
-		status = success
+		success = status
 	}
-	return status, nil
+	return success, nil
 }
 
 // 4
