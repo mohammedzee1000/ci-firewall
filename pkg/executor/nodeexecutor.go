@@ -21,7 +21,19 @@ type NodeSSHExecutor struct {
 
 func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeSSHExecutor, error) {
 	var cfg *ssh.ClientConfig
-	if nd.SSHPassword != "" {
+	if nd.SSHKey != "" {
+		signer, err := ssh.ParsePrivateKey([]byte(nd.SSHKey))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse private key %w", err)
+		}
+		cfg = &ssh.ClientConfig{
+			User: nd.User,
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(signer),
+			},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		}
+	} else if nd.SSHPassword != "" {
 		cfg = &ssh.ClientConfig{
 			User: nd.User,
 			Auth: []ssh.AuthMethod{
@@ -30,17 +42,7 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		}
 	} else {
-		signer, err := ssh.ParsePrivateKey([]byte(nd.SSHKey))
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse private key %w", err)
-		}
-		cfg = &ssh.ClientConfig{
-			User: "username",
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(signer),
-			},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		}
+		return nil, fmt.Errorf("node should either have sshkey or password")
 	}
 	addr := nd.Address
 	if len(strings.Split(addr, ":")) < 2 {
