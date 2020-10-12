@@ -1,8 +1,6 @@
 package util
 
 import (
-	"bufio"
-	"fmt"
 	"log"
 	"os"
 )
@@ -18,15 +16,10 @@ func getEnv(key string, defaultVal string, failifnotfound bool) string {
 	return defaultVal
 }
 
-func GenerateEnvFile(path string, values map[string]string) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return fmt.Errorf("failed to open env file %w", err)
+func EnvMapCopy(orignalMap map[string]string) map[string]string {
+	newmap := make(map[string]string)
+	for k, v := range orignalMap {
+		newmap[k] = v
 	}
-	defer f.Close()
-	dw := bufio.NewWriter(f)
-	for k, v := range values {
-		dw.WriteString(fmt.Sprintf("%s=%s\n", k, v))
-	}
-	return dw.Flush()
+	return newmap
 }

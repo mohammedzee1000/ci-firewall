@@ -11,6 +11,7 @@ import (
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
+	"github.com/mohammedzee1000/ci-firewall/pkg/util"
 )
 
 type Worker struct {
@@ -115,7 +116,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 	defer ex.Close()
 	if oldsuccess {
 		//cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-		ex.SetEnvs(w.envVars)
+		ex.SetEnvs(util.EnvMapCopy(w.envVars))
 		done := make(chan error)
 		ex.ShortStderrToStdOut()
 		r, _ := ex.StdoutPipe()
