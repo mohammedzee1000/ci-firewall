@@ -238,7 +238,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			}
 		}
 		//5. Run the run script
-		cmd6 := []string{"sh", w.setupScript}
+		cmd6 := []string{"sh", w.runScript}
 		w.printAndStreamCommand(cmd6)
 		ex6, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd6)
 		if err != nil {
@@ -306,7 +306,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			}
 		}
 		//6 run run script
-		cmd6 := []string{"sh", w.setupScript}
+		cmd6 := []string{"sh", w.runScript}
 		w.printAndStreamCommand(cmd6)
 		ex6 := executor.NewLocalExecutor(cmd6)
 		success, err = w.runCommand(success, ex6)
