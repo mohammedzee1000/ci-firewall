@@ -126,7 +126,7 @@ func (ne *NodeSSHExecutor) Close() error {
 
 func (ne *NodeSSHExecutor) SetEnvs(envVars map[string]string) error {
 	for k, v := range envVars {
-		ne.envString = fmt.Sprintf("export %s=\"%s\"; %s", k, v, ne.envString)
+		ne.envString = fmt.Sprintf("%sexport %s=\"%s\"; ", ne.envString, k, v)
 	}
 	return nil
 }
