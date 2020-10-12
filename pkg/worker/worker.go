@@ -225,6 +225,7 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 		}
 		//4. run the setup script, if it is provided
 		if w.setupScript != "" {
+			w.printAndStream("running setup script")
 			cmd5 := []string{"sh", w.setupScript}
 			w.printAndStreamCommand(cmd5)
 			ex5, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd5)
