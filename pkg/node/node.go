@@ -6,6 +6,11 @@ import (
 	"io/ioutil"
 )
 
+const (
+	NodeBaseOS = "BASE_OS"
+	NodeArch   = "ARCH"
+)
+
 type Node struct {
 	Name        string `json:"name"`
 	User        string `json:"user"`

@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"github.com/mohammedzee1000/ci-firewall/pkg/node"
 )
 
 type LocalExecutor struct {
@@ -39,8 +41,8 @@ func (le *LocalExecutor) ExitCode() int {
 
 func (le *LocalExecutor) SetEnvs(envVars map[string]string) error {
 	le.cmd.Env = os.Environ()
-	envVars["BASE_OS"] = "linux"
-	envVars["ARCH"] = "amd64"
+	envVars[node.NodeBaseOS] = "linux"
+	envVars[node.NodeArch] = "amd64"
 	for k, v := range envVars {
 		le.cmd.Env = append(le.cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
