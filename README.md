@@ -108,6 +108,27 @@ Main Command:
 
 TODO
 
-## MultiOS
+## SSHNodeFile
 
-TODO
+It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`
+
+The format of th file is as below
+
+```json
+{
+    "nodes": [
+        {
+            "name": "common name of node. example -Fedora 31-",
+            "user": "username to ssh into the node with",
+            "address": "The address of the node, like an ip or domain name without port",
+            "port": "port of ssh server, optional-defaults to 22",
+            "baseos": "linux|windows|macos",
+            "arch": "arch of the system eg amd64",
+            "sshpassword": "not recommended but you can provide password of target node",
+            "privatekey": "Optional again but either this or password MUST be given."
+        }
+    ]
+}
+```
+
+**WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
