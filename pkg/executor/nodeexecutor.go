@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -94,7 +95,11 @@ func (ne *NodeSSHExecutor) Start() error {
 func (ne *NodeSSHExecutor) Wait() error {
 	err := ne.session.Wait()
 	if err != nil {
-		ne.exitCode = 1
+		if err, ok := err.(*ssh.ExitError); ok {
+			ne.exitCode = err.ExitStatus()
+		} else {
+			errors.New("failed to wait ssh command: " + err.Error())
+		}
 	}
 	return err
 }
