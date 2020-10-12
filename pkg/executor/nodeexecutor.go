@@ -12,12 +12,13 @@ import (
 )
 
 type NodeSSHExecutor struct {
-	nd       *node.Node
-	workdir  string
-	session  *ssh.Session
-	cmdArgs  []string
-	client   *ssh.Client
-	exitCode int
+	nd        *node.Node
+	workdir   string
+	session   *ssh.Session
+	cmdArgs   []string
+	client    *ssh.Client
+	envString string
+	exitCode  int
 }
 
 func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeSSHExecutor, error) {
@@ -85,6 +86,8 @@ func (ne *NodeSSHExecutor) Start() error {
 	if ne.workdir != "" {
 		cmdstr = fmt.Sprintf("cd %s && %s", ne.workdir, cmdstr)
 	}
+	//appendenvstring
+	cmdstr = fmt.Sprintf("%s%s", ne.envString, cmdstr)
 	err := ne.session.Start(cmdstr)
 	if err != nil {
 		ne.exitCode = 1
@@ -122,7 +125,11 @@ func (ne *NodeSSHExecutor) Close() error {
 
 func (ne *NodeSSHExecutor) SetEnvs(envVars map[string]string) error {
 	for k, v := range envVars {
-		ne.session.Setenv(k, v)
+		ne.envString = fmt.Sprintf("export %s=\"%s\"; %s", k, v, ne.envString)
 	}
 	return nil
+}
+
+func (ne *NodeSSHExecutor) Session() *ssh.Session {
+	return ne.session
 }
