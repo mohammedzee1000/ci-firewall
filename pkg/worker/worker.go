@@ -224,7 +224,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 	if nd != nil {
 		//node executor
 		w.printAndStream(fmt.Sprintf("running tests on node %s via ssh", nd.Name))
-		workDir := fmt.Sprintf("%s_%s", w.jenkinsProject, w.target)
+		workDir := fmt.Sprintf("%s_%s_%s", w.jenkinsProject, w.kind, w.target)
 		repoDir := filepath.Join(workDir, w.repoDir)
 		//Remove any existing workdir of same name, ussually due to termination of jobs
 		cmdd1 := []string{"rm", "-rf", workDir}
