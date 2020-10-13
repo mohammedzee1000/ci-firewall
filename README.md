@@ -41,10 +41,10 @@ Apart from these core parameters, which will be sent by requestor, the following
 - *Jenkins Job/Project*: The name of the jenkins job or project (This should already be exposed as `JOB_NAME` in jenkins build)
 - *Jenkins Build Number*: The number of the jenkins build (this should already be exposed as `BUILD_NUMBER` in jenkins build).
 
-- *AMQP URI*: The full URL of amqp server, including username/password and virtual servers, if any. looks for `AMQP_URI` env if set or can be passed as argument to cli.
+- *AMQP URI*: The full URL of amqp server, including username/password and virtual servers.  `AMQP_URI` env if set or can be passed as argument to cli.
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
-- *Multi OS(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli
+- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli
 
 More details down below.
 
@@ -86,9 +86,9 @@ Main Command:
 #### Request Parameters
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
-- *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`)
+- *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`). This is the same queue that your jenkins is subscribed to.
 - *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
-- *Jenkins Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`)
+- *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`)
 - *Jenkins Token*: The shared token for the jenkins project. (env `JOB_TOKEN` or param `--jobtoken`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
 - *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
@@ -106,11 +106,24 @@ Main Command:
 
 #### Work Parameters
 
-TODO
+- *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
+- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (env `RCV_QUEUE_NAME` or param `recievequeue`)
+- *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
+- *Jenkins URL*: The URL of the jenkins server (this should be already exposed and `JENKINS_URL` env in jenkins build or param `--jenkinsurl`)
+*Jenkins Build Number*: The number of the jenkins build (this should already be exposed as `BUILD_NUMBER` in jenkins build or param `--jenkinsbuild`).
+*Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or param `--jenkinsuser`
+- *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli as `--jenkinspassword`
+- *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
+- *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
+- *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
+- *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
+- *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
+- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli `param --sshnodefile file`
 
 ## SSHNodeFile
 
 It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`
+
 
 The format of th file is as below
 
