@@ -149,10 +149,75 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 	return false, nil
 }
 
-func (w *Worker) runTests(nd *node.Node) (bool, error) {
+func (w *Worker) runTestsLocally() (bool, error) {
 	var success bool
 	var status bool
 	var err error
+	var chkout string
+
+	//local executor
+	w.printAndStream("running tests locally")
+	//1. clone the repo
+	cmd1 := []string{"git", "clone", w.repoURL, w.repoDir}
+	w.printAndStreamCommand(cmd1)
+	ex1 := executor.NewLocalExecutor(cmd1)
+	status, err = w.runCommand(true, ex1)
+	if err != nil {
+		return false, fmt.Errorf("failed to clone repo %w", err)
+	}
+	//2. change to repodir
+	os.Chdir(w.repoDir)
+	//3. Fetch if needed
+	if w.kind == messages.RequestTypePR {
+		chkout = fmt.Sprintf("pr%s", w.target)
+		cmd3 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
+		w.printAndStreamCommand(cmd3)
+		ex3 := executor.NewLocalExecutor(cmd3)
+		status, err = w.runCommand(status, ex3)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch pr %w", err)
+		}
+	} else if w.kind == messages.RequestTypeBranch {
+		chkout = w.target
+	} else if w.kind == messages.RequestTypeTag {
+		chkout = fmt.Sprintf("tags/%s", w.target)
+	}
+	//4 checkout
+	cmd4 := []string{"git", "checkout", chkout}
+	w.printAndStreamCommand(cmd4)
+	ex4 := executor.NewLocalExecutor(cmd4)
+	status, err = w.runCommand(status, ex4)
+	if err != nil {
+		return false, fmt.Errorf("failed to checkout %w", err)
+	}
+	//5 run the setup script, if it is provided
+	if w.setupScript != "" {
+		cmd5 := []string{"sh", w.setupScript}
+		w.printAndStreamCommand(cmd5)
+		ex5 := executor.NewLocalExecutor(cmd5)
+		status, err = w.runCommand(status, ex5)
+		if err != nil {
+			return false, fmt.Errorf("failed to run setup script")
+		}
+	}
+	//6 run run script
+	cmd6 := []string{"sh", w.runScript}
+	w.printAndStreamCommand(cmd6)
+	ex6 := executor.NewLocalExecutor(cmd6)
+	status, err = w.runCommand(status, ex6)
+	if err != nil {
+		return false, fmt.Errorf("failed to run run script")
+	}
+	//2C. getout of repodir
+	os.Chdir("..")
+	success = status
+
+	return success, nil
+}
+
+func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
+	var success bool
+	var status bool
 	var chkout string
 
 	// If we have node, then we need to use node executor
@@ -261,63 +326,6 @@ func (w *Worker) runTests(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
 		success = status
-	} else {
-		//local executor
-		w.printAndStream("running tests locally")
-		//1. clone the repo
-		cmd1 := []string{"git", "clone", w.repoURL, w.repoDir}
-		w.printAndStreamCommand(cmd1)
-		ex1 := executor.NewLocalExecutor(cmd1)
-		status, err = w.runCommand(true, ex1)
-		if err != nil {
-			return false, fmt.Errorf("failed to clone repo %w", err)
-		}
-		//2. change to repodir
-		os.Chdir(w.repoDir)
-		//3. Fetch if needed
-		if w.kind == messages.RequestTypePR {
-			chkout = fmt.Sprintf("pr%s", w.target)
-			cmd3 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
-			w.printAndStreamCommand(cmd3)
-			ex3 := executor.NewLocalExecutor(cmd3)
-			status, err = w.runCommand(status, ex3)
-			if err != nil {
-				return false, fmt.Errorf("failed to fetch pr %w", err)
-			}
-		} else if w.kind == messages.RequestTypeBranch {
-			chkout = w.target
-		} else if w.kind == messages.RequestTypeTag {
-			chkout = fmt.Sprintf("tags/%s", w.target)
-		}
-		//4 checkout
-		cmd4 := []string{"git", "checkout", chkout}
-		w.printAndStreamCommand(cmd4)
-		ex4 := executor.NewLocalExecutor(cmd4)
-		status, err = w.runCommand(status, ex4)
-		if err != nil {
-			return false, fmt.Errorf("failed to checkout %w", err)
-		}
-		//5 run the setup script, if it is provided
-		if w.setupScript != "" {
-			cmd5 := []string{"sh", w.setupScript}
-			w.printAndStreamCommand(cmd5)
-			ex5 := executor.NewLocalExecutor(cmd5)
-			status, err = w.runCommand(status, ex5)
-			if err != nil {
-				return false, fmt.Errorf("failed to run setup script")
-			}
-		}
-		//6 run run script
-		cmd6 := []string{"sh", w.runScript}
-		w.printAndStreamCommand(cmd6)
-		ex6 := executor.NewLocalExecutor(cmd6)
-		status, err = w.runCommand(status, ex6)
-		if err != nil {
-			return false, fmt.Errorf("failed to run run script")
-		}
-		//2C. getout of repodir
-		os.Chdir("..")
-		success = status
 	}
 	return success, nil
 }
@@ -329,7 +337,7 @@ func (w *Worker) test() (bool, error) {
 
 	if w.sshNodes != nil {
 		for _, nd := range w.sshNodes.Nodes {
-			success, err := w.runTests(&nd)
+			success, err := w.runTestsOnNode(&nd)
 			if err != nil {
 				return false, err
 			}
@@ -338,7 +346,7 @@ func (w *Worker) test() (bool, error) {
 			}
 		}
 	} else {
-		status, err = w.runTests(nil)
+		status, err = w.runTestsLocally()
 		if err != nil {
 			return false, err
 		}
