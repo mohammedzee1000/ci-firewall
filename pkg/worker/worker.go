@@ -11,6 +11,7 @@ import (
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
+	"github.com/mohammedzee1000/ci-firewall/pkg/printstreambuffer"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
 	"github.com/mohammedzee1000/ci-firewall/pkg/util"
 )
@@ -28,6 +29,7 @@ type Worker struct {
 	envFile         string
 	repoDir         string
 	sshNodes        *node.NodeList
+	psb             *printstreambuffer.PrintStreamBuffer
 }
 
 func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
@@ -44,6 +46,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
 	}
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, 10, w.jenkinsBuild)
 	return w
 }
 
@@ -83,11 +86,7 @@ func (w *Worker) sendBuildInfo() error {
 }
 
 func (w *Worker) printAndStream(msg string) error {
-	fmt.Println(msg)
-	lm := messages.NewLogsMessage(w.jenkinsBuild, msg)
-	err := w.rcvq.Publish(
-		false, lm,
-	)
+	err := w.psb.Println(msg, false)
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -95,11 +94,11 @@ func (w *Worker) printAndStream(msg string) error {
 }
 
 func (w *Worker) printAndStreamCommand(cmdArgs []string) error {
-	return w.printAndStream(fmt.Sprintf("Executing command %v", cmdArgs))
+	return w.psb.Println(fmt.Sprintf("Executing command %v", cmdArgs), true)
 }
 
 func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
-	return w.printAndStream(fmt.Sprintf("Executing command [%s]", cmdArgs))
+	return w.psb.Println(fmt.Sprintf("Executing command [%s]", cmdArgs), true)
 }
 
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error) {
@@ -131,6 +130,10 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 			return false, err
 		}
 		ex.Wait()
+		err = w.psb.Flush()
+		if err != nil {
+			return false, err
+		}
 		if ex.ExitCode() != 0 {
 			return false, nil
 		}
@@ -369,6 +372,10 @@ func (w *Worker) Run() error {
 	fmt.Printf("Success : %t\n", success)
 	if err := w.sendStatusMessage(success); err != nil {
 		return fmt.Errorf("failed to send status message %w", err)
+	}
+	err = w.psb.Flush()
+	if err != nil {
+		return err
 	}
 	return nil
 }
