@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -23,15 +24,11 @@ type WorkOptions struct {
 	jenkinsBuild    int
 	jenkinsUser     string
 	jenkinsPassword string
-	repoURL         string
-	kind            string
-	target          string
-	runScript       string
-	setupScript     string
-	recieveQName    string
 	envVarsArr      []string
 	envVars         map[string]string
 	sshNodesFile    string
+	cimsgenv        string
+	cimsg           *messages.RemoteBuildRequestMessage
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -52,11 +49,15 @@ func (wo *WorkOptions) envVarsArrToEnvVars() error {
 }
 
 func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) error {
-	if wo.recieveQName == "" {
-		wo.recieveQName = fmt.Sprintf("rcv_%s_%s", wo.jenkinsProject, wo.target)
+	var err error
+	cimsgdata := os.Getenv(wo.cimsgenv)
+	if cimsgdata == "" {
+		return fmt.Errorf("the env content seems empty, did you provide the right value?")
 	}
-	if wo.kind == "" {
-		wo.kind = messages.RequestTypePR
+	wo.cimsg = messages.NewRemoteBuildRequestMessage("", "", "", "", "", "")
+	err = json.Unmarshal([]byte(cimsgdata), wo.cimsg)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal CI message %w", err)
 	}
 	return wo.envVarsArrToEnvVars()
 }
@@ -77,21 +78,24 @@ func (wo *WorkOptions) Validate() (err error) {
 	if wo.jenkinsPassword == "" {
 		return fmt.Errorf("provide Jenkins user")
 	}
-	if wo.repoURL == "" {
-		return fmt.Errorf("provide Repo URL")
+	if wo.cimsgenv == "" {
+		return fmt.Errorf("please provide env of ci message")
 	}
-	if wo.kind == "" {
-		return fmt.Errorf("provide Kind")
-	}
-	if wo.target == "" {
-		return fmt.Errorf("provide Target")
-	}
-	if wo.runScript == "" {
-		return fmt.Errorf("provide Run Script")
-	}
-	if wo.kind != messages.RequestTypePR && wo.kind != messages.RequestTypeBranch && wo.kind != messages.RequestTypeTag {
-		return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
-	}
+	// if wo.repoURL == "" {
+	// 	return fmt.Errorf("provide Repo URL")
+	// }
+	// if wo.kind == "" {
+	// 	return fmt.Errorf("provide Kind")
+	// }
+	// if wo.target == "" {
+	// 	return fmt.Errorf("provide Target")
+	// }
+	// if wo.runScript == "" {
+	// 	return fmt.Errorf("provide Run Script")
+	// }
+	// if wo.kind != messages.RequestTypePR && wo.kind != messages.RequestTypeBranch && wo.kind != messages.RequestTypeTag {
+	// 	return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
+	// }
 	if wo.sshNodesFile != "" {
 		_, err := os.Stat(wo.sshNodesFile)
 		if err != nil {
@@ -111,7 +115,7 @@ func (wo *WorkOptions) Run() (err error) {
 		}
 	}
 	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.kind, wo.repoURL, wo.target, wo.setupScript, wo.runScript, wo.recieveQName, wo.envVars, wo.jenkinsBuild, nl,
+		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv, wo.cimsg, wo.envVars, wo.jenkinsBuild, nl,
 	)
 	err = wo.worker.Run()
 	if err != nil {
@@ -134,17 +138,12 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.amqpURI, "amqpurl", os.Getenv("AMQP_URI"), "the url of amqp server")
-	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
+	cmd.Flags().StringVar(&o.cimsgenv, "cimsgenv", "CI_MESSAGE", "the env containing the CI message")
 	cmd.Flags().StringVar(&o.jenkinsURL, "jenkinsurl", jenkins.GetJenkinsURL(), "the url of jenkins server")
 	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of the jenkins project")
 	cmd.Flags().StringVar(&o.jenkinsUser, "jenkinsuser", os.Getenv("JENKINS_ROBOT_USER"), "the name of the jenkins robot account")
 	cmd.Flags().StringVar(&o.jenkinsPassword, "jenkinspassword", os.Getenv("JENKINS_ROBOT_PASSWORD"), "the password of the robot account user")
 	cmd.Flags().IntVar(&o.jenkinsBuild, "jenkinsbuild", jenkins.GetJenkinsBuildNumber(), "the number of jenkins build")
-	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
-	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
-	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
-	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
-	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the path of the script to run on jenkins, before the run script, relative to repo root")
 	cmd.Flags().StringVar(&o.sshNodesFile, "sshnodesfile", "", "sshnodesfile is path of json file containing node information. If provided tests will be done by sshing to the nodes see docs")
 	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	return cmd

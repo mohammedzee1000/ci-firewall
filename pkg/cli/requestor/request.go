@@ -16,18 +16,19 @@ import (
 const RequestRecommendedCommandName = "request"
 
 type RequestOptions struct {
-	requestor      *requestor.Requestor
-	amqpURI        string
-	sendQName      string
-	jenkinsProject string
-	jenkinsToken   string
-	repoURL        string
-	kind           string
-	target         string
-	runScript      string
-	setupScript    string
-	recieveQName   string
-	timeout        time.Duration
+	requestor        *requestor.Requestor
+	amqpURI          string
+	sendQName        string
+	sendExchangeName string
+	sendTopic        string
+	repoURL          string
+	kind             string
+	target           string
+	runScript        string
+	setupScript      string
+	rcvIdent         string
+	jenkinsproject   string
+	timeout          time.Duration
 }
 
 func NewRequestOptions() *RequestOptions {
@@ -38,8 +39,8 @@ func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []strin
 	if ro.sendQName == "" {
 		ro.sendQName = "CI_SEND"
 	}
-	if ro.recieveQName == "" {
-		ro.recieveQName = fmt.Sprintf("rcv_%s_%s_%s", ro.jenkinsProject, ro.kind, ro.target)
+	if ro.rcvIdent == "" {
+		ro.rcvIdent = fmt.Sprintf("rcv_%s_%s_%s", ro.jenkinsproject, ro.kind, ro.target)
 	}
 	if ro.kind == "" {
 		ro.kind = messages.RequestTypePR
@@ -51,11 +52,11 @@ func (ro *RequestOptions) Validate() (err error) {
 	if ro.amqpURI == "" {
 		return fmt.Errorf("provide AMQP URI")
 	}
-	if ro.jenkinsProject == "" {
-		return fmt.Errorf("provide Jenkins Project")
+	if ro.sendExchangeName == "" {
+		return fmt.Errorf("please provide send exchange name")
 	}
-	if ro.jenkinsToken == "" {
-		return fmt.Errorf("provide Jenkins Token")
+	if ro.sendTopic == "" {
+		return fmt.Errorf("please provide send q topic")
 	}
 	if ro.repoURL == "" {
 		return fmt.Errorf("provide Repo URL")
@@ -79,14 +80,14 @@ func (ro *RequestOptions) Run() (err error) {
 	ro.requestor = requestor.NewRequestor(
 		ro.amqpURI,
 		ro.sendQName,
-		ro.jenkinsProject,
-		ro.jenkinsToken,
+		ro.sendExchangeName,
+		ro.sendTopic,
 		ro.repoURL,
 		ro.kind,
 		ro.target,
 		ro.setupScript,
 		ro.runScript,
-		ro.recieveQName,
+		ro.rcvIdent,
 	)
 	err = ro.requestor.Run()
 	if err != nil {
@@ -124,10 +125,10 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.amqpURI, "amqpuri", os.Getenv("AMQP_URI"), "the url of amqp server")
+	cmd.Flags().StringVar(&o.jenkinsproject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of target jenkins project. Required for ident purposes only")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "", "the name of the send queue")
-	cmd.Flags().StringVar(&o.recieveQName, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
-	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of the jenkins project")
-	cmd.Flags().StringVar(&o.jenkinsToken, "jenkinstoken", os.Getenv("JOB_TOKEN"), "the token as set on jenkins project for remote build")
+	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "", "the")
+	cmd.Flags().StringVar(&o.rcvIdent, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")

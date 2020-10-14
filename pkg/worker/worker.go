@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,25 +22,18 @@ type Worker struct {
 	jenkinsURL      string
 	jenkinsUser     string
 	jenkinsPassword string
-	repoURL         string
-	kind            string
-	target          string
-	setupScript     string
-	runScript       string
+	cimsgenv        string
+	cimsg           *messages.RemoteBuildRequestMessage
 	envVars         map[string]string
 	envFile         string
 	repoDir         string
 	sshNodes        *node.NodeList
 }
 
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject, kind, repoURL, target, setupScript, runScript, rcvQueueName string, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
 	w := &Worker{
-		rcvq:            queue.NewAMQPQueue(amqpURI, rcvQueueName),
-		kind:            kind,
-		repoURL:         repoURL,
-		target:          target,
-		runScript:       runScript,
-		setupScript:     setupScript,
+		rcvq:            queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent),
+		cimsg:           cimsg,
 		jenkinsProject:  jenkinsProject,
 		jenkinsBuild:    jenkinsBuild,
 		jenkinsURL:      jenkinsURL,
@@ -56,18 +50,15 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 // 1
 func (w *Worker) cleanupOldBuilds() error {
 	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
-		counter := 0
 		for k, v := range params {
-			if k == messages.RequestParameterKind && v == w.kind {
-				counter = counter + 1
-			} else if k == messages.RequestParameterTarget && v == w.target {
-				counter = counter + 1
-			} else if k == messages.RequestParameterRunScript && v == w.runScript {
-				counter = counter + 1
+			if k == w.cimsgenv {
+				//v is the cimsg of this job
+				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "")
+				json.Unmarshal([]byte(v), jcim)
+				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript {
+					return true
+				}
 			}
-		}
-		if counter == 3 {
-			return true
 		}
 		return false
 	})
@@ -158,7 +149,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 	//local executor
 	w.printAndStream("running tests locally")
 	//1. clone the repo
-	cmd1 := []string{"git", "clone", w.repoURL, w.repoDir}
+	cmd1 := []string{"git", "clone", w.cimsg.RepoURL, w.repoDir}
 	w.printAndStreamCommand(cmd1)
 	ex1 := executor.NewLocalExecutor(cmd1)
 	status, err = w.runCommand(true, ex1)
@@ -168,19 +159,19 @@ func (w *Worker) runTestsLocally() (bool, error) {
 	//2. change to repodir
 	os.Chdir(w.repoDir)
 	//3. Fetch if needed
-	if w.kind == messages.RequestTypePR {
-		chkout = fmt.Sprintf("pr%s", w.target)
-		cmd3 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
+	if w.cimsg.Kind == messages.RequestTypePR {
+		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
+		cmd3 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)}
 		w.printAndStreamCommand(cmd3)
 		ex3 := executor.NewLocalExecutor(cmd3)
 		status, err = w.runCommand(status, ex3)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch pr %w", err)
 		}
-	} else if w.kind == messages.RequestTypeBranch {
-		chkout = w.target
-	} else if w.kind == messages.RequestTypeTag {
-		chkout = fmt.Sprintf("tags/%s", w.target)
+	} else if w.cimsg.Target == messages.RequestTypeBranch {
+		chkout = w.cimsg.Target
+	} else if w.cimsg.Kind == messages.RequestTypeTag {
+		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
 	}
 	//4 checkout
 	cmd4 := []string{"git", "checkout", chkout}
@@ -191,8 +182,8 @@ func (w *Worker) runTestsLocally() (bool, error) {
 		return false, fmt.Errorf("failed to checkout %w", err)
 	}
 	//5 run the setup script, if it is provided
-	if w.setupScript != "" {
-		cmd5 := []string{"sh", w.setupScript}
+	if w.cimsg.SetupScript != "" {
+		cmd5 := []string{"sh", w.cimsg.SetupScript}
 		w.printAndStreamCommand(cmd5)
 		ex5 := executor.NewLocalExecutor(cmd5)
 		status, err = w.runCommand(status, ex5)
@@ -201,7 +192,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 		}
 	}
 	//6 run run script
-	cmd6 := []string{"sh", w.runScript}
+	cmd6 := []string{"sh", w.cimsg.RunScript}
 	w.printAndStreamCommand(cmd6)
 	ex6 := executor.NewLocalExecutor(cmd6)
 	status, err = w.runCommand(status, ex6)
@@ -224,10 +215,10 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 	if nd != nil {
 		//node executor
 		w.printAndStream(fmt.Sprintf("running tests on node %s via ssh", nd.Name))
-		workDir := fmt.Sprintf("%s_%s_%s", w.jenkinsProject, w.kind, w.target)
-		repoDir := filepath.Join(workDir, w.repoDir)
+
+		repoDir := filepath.Join(w.cimsg.RcvIdent, w.repoDir)
 		//Remove any existing workdir of same name, ussually due to termination of jobs
-		cmdd1 := []string{"rm", "-rf", workDir}
+		cmdd1 := []string{"rm", "-rf", w.cimsg.RcvIdent}
 		w.printAndStreamCommand(cmdd1)
 		exd1, err := executor.NewNodeSSHExecutor(nd, "", cmdd1)
 		if err != nil {
@@ -250,9 +241,9 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 		}
 		//run the tests
 		//1. Clone the repo
-		cmd1 := []string{"git", "clone", w.repoURL, w.repoDir}
+		cmd1 := []string{"git", "clone", w.cimsg.RepoURL, w.repoDir}
 		w.printAndStreamCommand(cmd1)
-		ex1, err := executor.NewNodeSSHExecutor(nd, workDir, cmd1)
+		ex1, err := executor.NewNodeSSHExecutor(nd, w.cimsg.RcvIdent, cmd1)
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
@@ -261,9 +252,9 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("unable to clone repo %w", err)
 		}
 		//2. fetch if needed
-		if w.kind == messages.RequestTypePR {
-			chkout = fmt.Sprintf("pr%s", w.target)
-			cmd2 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.target, chkout)}
+		if w.cimsg.Kind == messages.RequestTypePR {
+			chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
+			cmd2 := []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)}
 			w.printAndStreamCommand(cmd2)
 			ex3, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd2)
 			if err != nil {
@@ -273,10 +264,10 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			if err != nil {
 				return false, fmt.Errorf("failed to fetch pr %w", err)
 			}
-		} else if w.kind == messages.RequestTypeBranch {
-			chkout = w.target
-		} else if w.kind == messages.RequestTypeTag {
-			chkout = fmt.Sprintf("tags/%s", w.target)
+		} else if w.cimsg.Kind == messages.RequestTypeBranch {
+			chkout = w.cimsg.Target
+		} else if w.cimsg.Kind == messages.RequestTypeTag {
+			chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
 		}
 		//3. Checkout target
 		cmd4 := []string{"git", "checkout", chkout}
@@ -290,9 +281,9 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 		//4. run the setup script, if it is provided
-		if w.setupScript != "" {
+		if w.cimsg.SetupScript != "" {
 			w.printAndStream("running setup script")
-			cmd5 := []string{"sh", w.setupScript}
+			cmd5 := []string{"sh", w.cimsg.SetupScript}
 			w.printAndStreamCommand(cmd5)
 			ex5, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd5)
 			if err != nil {
@@ -304,7 +295,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			}
 		}
 		//5. Run the run script
-		cmd6 := []string{"sh", w.runScript}
+		cmd6 := []string{"sh", w.cimsg.RunScript}
 		w.printAndStreamCommand(cmd6)
 		ex6, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd6)
 		if err != nil {
@@ -315,7 +306,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("failed to run run script")
 		}
 		//remove workdir on success
-		cmdd2 := []string{"rm", "-rf", workDir}
+		cmdd2 := []string{"rm", "-rf", w.cimsg.RcvIdent}
 		w.printAndStreamCommand(cmdd2)
 		exd2, err := executor.NewNodeSSHExecutor(nd, "", cmdd2)
 		if err != nil {

@@ -15,7 +15,7 @@ The requestor MUST have following information in it, so that it can be passed as
 
 - *AMQP URI*: The full URL of amqp server, including username/password and virtual servers if any
 - *Send Queue Name*: The name of the send queue. This value should match what you configure on jenkins side
-- *Recieve Queue Name(optional)*: The name of the recieve queue. Ideally, should be seperate from send queue, and ideally unique for each run request (latter is not compulsory, but will likely result in slowdown). By default, this will be taken as `rcv_jobname_kind_target`
+- *Recieve Queue Name(optional)*: The name of the recieve queue. Ideally, should be seperate from send queue, and ideally unique for each run request (latter is not compulsory, but will likely result in slowdown). By default, this will be taken as `rcv_kind_target`
 - *Jenkins Job/Project*: The name of the jenkins job or project
 - *Jenkins Token*: The token, as set on jenkins side for triggering the build.
 - *Repo URL*: The URL of the repo to test
@@ -23,19 +23,13 @@ The requestor MUST have following information in it, so that it can be passed as
 - *Kind*: The kind of target. `PR|BRANCH|TAG`
 - *Run Script*: The script to run on the jenkins. Relative to repo root
 - *Setup Script*: The script to run before run script. Relative to repo root.
+- *CI Message Variable* The variable containing, as configured in your CI Event Subscriber
 
 ### Worker Jenkins job configuration
 
 The worker jenkins job MUST have following parameters defined. They do not have to be set, but configured.
 
-- `REPO_URL`: The repo to test against
-- `KIND`: The kind of build request
-- `TARGET`: The target in the repo to test against. Example PR no/Branch Name etc
-- `RUN_SCRIPT`: The entrypoint shell script to execute on worker side. Must handle the exit 1 case and be relative to repo root.
-- `RCV_QUEUE_NAME`: Name of the recieve queue on the worker replies to requestor
-- `SETUP_SCRIPT`: Name of setup script to run before running tests on worker side, Must handle exit 1 case and be relative to repo root
-
-Apart from these core parameters, which will be sent by requestor, the following information will be needed in the worker. They will need to be passed to the worker cli as parameters in your jenkins (explained further down):
+The following information will be needed in the worker. They will need to be passed to the worker cli as parameters in your jenkins (explained further down):
 
 - *Jenkins URL*: The URL of the jenkins server (this should be already exposed and `JENKINS_URL` env in jenkins build)
 - *Jenkins Job/Project*: The name of the jenkins job or project (This should already be exposed as `JOB_NAME` in jenkins build)
@@ -87,10 +81,11 @@ Main Command:
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
 - *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`). This is the same queue that your jenkins is subscribed to.
+- *Send Exchange*: The name of the send queue exchange. If it already exists, it should be of kind fanout. Defaults to `CI_SEND_EXCHANGE` (param `--sendexchange`)
+- *Send Topic*: This is the topic binding between the send queue and send exchange. Defaults to `CI_SEND_REQUEST` (param `--sendtopic`)
 - *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
-- *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`)
-- *Jenkins Token*: The shared token for the jenkins project. (env `JOB_TOKEN` or param `--jobtoken`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
+- *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
 - *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
@@ -107,6 +102,7 @@ Main Command:
 #### Work Parameters
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
+- *CI Message Variable* This is the name of the environment variable containing the CI message send by request. It is configured on the jenkins job in the  CI subscriber. Defaults to `CI_MESSAGE`. (param `--cimessageenv`)
 - *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (env `RCV_QUEUE_NAME` or param `recievequeue`)
 - *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
 - *Jenkins URL*: The URL of the jenkins server (this should be already exposed and `JENKINS_URL` env in jenkins build or param `--jenkinsurl`)

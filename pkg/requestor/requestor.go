@@ -10,10 +10,8 @@ import (
 )
 
 type Requestor struct {
-	sendq            *queue.AMQPQueue
+	sendq            *queue.JMSAMQPQueue
 	rcvq             *queue.AMQPQueue
-	jenkinsProject   string
-	jenkinsToken     string
 	jenkinsBuild     int
 	repoURL          string
 	kind             string
@@ -24,12 +22,10 @@ type Requestor struct {
 	done             chan error
 }
 
-func NewRequestor(amqpURI, sendqName, jenkinsProject, jenkinsToken, repoURL, kind, target, setupScript, runscript, recieveQueueName string) *Requestor {
+func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName string) *Requestor {
 	r := &Requestor{
-		sendq:            queue.NewAMQPQueue(amqpURI, sendqName),
+		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
 		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
-		jenkinsProject:   jenkinsProject,
-		jenkinsToken:     jenkinsToken,
 		jenkinsBuild:     -1,
 		repoURL:          repoURL,
 		kind:             kind,
@@ -59,7 +55,7 @@ func (r *Requestor) initQueus() error {
 
 func (r *Requestor) sendBuildRequest() error {
 	var err error
-	err = r.sendq.Publish(true, messages.NewRemoteBuildRequestMessage(r.jenkinsProject, r.jenkinsToken, r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName))
+	err = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName))
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}

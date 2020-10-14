@@ -12,31 +12,23 @@ const (
 	RequesParameterRepoURL       = "REPO_URL"
 )
 
-type RemoteBuildRequestMessageParameters map[string]string
-
 type RemoteBuildRequestMessage struct {
-	Project   string                                `json:"project"`
-	Token     string                                `json:"token"`
-	Parameter []RemoteBuildRequestMessageParameters `json:"parameter"`
+	RepoURL     string `json:"repourl"`
+	Kind        string `json:"kind"`
+	Target      string `json:"target"`
+	SetupScript string `json:"setupscript"`
+	RunScript   string `json:"runscript"`
+	RcvIdent    string `json:"rcvident"`
 }
 
-func NewRemoteBuildRequestMessage(project, token, repoURL, kind, target, setupscript, runscript, recieveQueueName string) *RemoteBuildRequestMessage {
+func NewRemoteBuildRequestMessage(repoURL, kind, target, setupscript, runscript, recieveQueueName string) *RemoteBuildRequestMessage {
 	r := &RemoteBuildRequestMessage{
-		Project: project,
-		Token:   token,
+		RepoURL:     repoURL,
+		Kind:        kind,
+		Target:      target,
+		SetupScript: setupscript,
+		RunScript:   runscript,
+		RcvIdent:    recieveQueueName,
 	}
-	r.AddParameter(RequesParameterRepoURL, repoURL)
-	r.AddParameter(RequestParameterKind, kind)
-	r.AddParameter(RequestParameterTarget, target)
-	r.AddParameter(RequestParameterRunScript, runscript)
-	r.AddParameter(RequestParameterRcvQueueName, recieveQueueName)
-	r.AddParameter(RequestParameterSetupScript, setupscript)
 	return r
-}
-
-func (rbrm *RemoteBuildRequestMessage) AddParameter(name, value string) {
-	p := make(RemoteBuildRequestMessageParameters)
-	p["name"] = name
-	p["value"] = value
-	rbrm.Parameter = append(rbrm.Parameter, p)
 }
