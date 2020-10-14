@@ -83,7 +83,7 @@ Main Command:
 - *Send Queue Name(optional)*: The name of the send queue. Defaults to `CI_SEND`. (param `--sendqueue`). This is the same queue that your jenkins is subscribed to.
 - *Send Exchange*: The name of the send queue exchange. If it already exists, it should be of kind fanout. Defaults to `CI_SEND_EXCHANGE` (param `--sendexchange`)
 - *Send Topic*: This is the topic binding between the send queue and send exchange. Defaults to `CI_SEND_REQUEST` (param `--sendtopic`)
-- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
+- *Recieve Ident(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (param `recievequeue`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
 - *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
 - *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)

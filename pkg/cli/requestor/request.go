@@ -128,7 +128,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.jenkinsproject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of target jenkins project. Required for ident purposes only")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "", "the name of the send queue")
 	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "", "the")
-	cmd.Flags().StringVar(&o.rcvIdent, "recievequeue", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
+	cmd.Flags().StringVar(&o.rcvIdent, "rcvident", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
