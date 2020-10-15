@@ -3,6 +3,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/streadway/amqp"
 )
@@ -85,7 +86,7 @@ func (aq *AMQPQueue) Consume(handleDeliveries func(deliveries <-chan amqp.Delive
 
 func (aq *AMQPQueue) Shutdown() error {
 	if _, err := aq.achan.QueuePurge(aq.queueName, false); err != nil {
-		return fmt.Errorf("failed to purge queue %s %w", aq.queueName, err)
+		log.Printf("failed to purge queue %s nvm failing gracefully: %w\n", aq.queueName, err)
 	}
 	if err := aq.achan.Close(); err != nil {
 		return fmt.Errorf("failed to close channel %w", err)
