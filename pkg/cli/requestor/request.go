@@ -37,7 +37,7 @@ func NewRequestOptions() *RequestOptions {
 
 func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []string) error {
 	if ro.rcvIdent == "" {
-		ro.rcvIdent = fmt.Sprintf("rcv_%s_%s_%s", ro.jenkinsproject, ro.kind, ro.target)
+		ro.rcvIdent = fmt.Sprintf("amqp_ci_rcv_%s_%s_%s", ro.jenkinsproject, ro.kind, ro.target)
 	}
 	if ro.kind == "" {
 		ro.kind = messages.RequestTypePR
@@ -123,9 +123,9 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&o.amqpURI, "amqpuri", os.Getenv("AMQP_URI"), "the url of amqp server")
 	cmd.Flags().StringVar(&o.jenkinsproject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of target jenkins project. Required for ident purposes only")
-	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "CI_SEND", "the name of the send queue")
-	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "CI_SEND_EXCHANGE", "the")
-	cmd.Flags().StringVar(&o.sendTopic, "sendtopic", "CI_SEND_REQUEST", "the name of the send topic")
+	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "amqp.ci.queue.send", "the name of the send queue")
+	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "amqp.ci.exchange.send", "the name of the exchange tp use for send")
+	cmd.Flags().StringVar(&o.sendTopic, "sendtopic", "amqp.ci.topic.send", "the name of the send topic")
 	cmd.Flags().StringVar(&o.rcvIdent, "rcvident", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
 	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
