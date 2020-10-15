@@ -38,7 +38,7 @@ func (jaq *JMSAMQPQueue) Init() error {
 	if err != nil {
 		return fmt.Errorf("failed to get channel from amqp q %w", err)
 	}
-	_, err = jaq.achan.QueueDeclare(jaq.queueName, false, true, false, false, nil)
+	_, err = jaq.achan.QueueDeclare(jaq.queueName, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue %w", err)
 	}
