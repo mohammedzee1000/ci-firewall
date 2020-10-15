@@ -1,12 +1,18 @@
 # ci-firewall
 
-Used to run CI behind firewalls and collect result
+Used to run CI behind firewalls and collect result stream it to a public place
+
+## DISCLAIMER
+
+**WARNING**: By using this, you are punching a hole through your firewall. Please ensure that your trigger mechanism is configured correctly so as to not allow random people ot change you code/scripts (like an ok-to-test filter for eg) in a way to abuse your system(by triggering random builds etc) or expose to private information.
+
+**WARNING**: This tool does NOT HANDLE scrubbing of logs to prevent leakage of private information. You are respondsible for your own scrubbing. Whatever your script prints to stdout/stderr, this tool streams. So ensure your script is handles the scrubbing
 
 ## Pre-requisites
 
-1. A publically accessible AMQP Message Queue like RabbitMQ. This should have a queue set aside to send the build requests
-2. A public facing CI system, which preferably allows for secrets for certain secrets (such as remote-build token and amqp URI) or any place to download and run the requestor, which will request a build and recieve the result. The requestor should be setup correctly. (see below)
-3. A jenkins (behind your firewall) with rabbitmq-build-trigger [plugin](https://plugins.jenkins.io/rabbitmq-build-trigger/). The plugin should be configured to listen on the send queue, which should already exist on the server.
+1. A publically accessible AMQP RabbitMQ (with JMS plugin). This should have a `queue (durable=true,autodelete=false)`, alongwith an `fanout type exchange` bound to the said queue, with a `topic(read routing key)` set aside to send the build requests.
+2. A public facing CI system, which preferably allows for secrets for certain secrets (such amqp URI, kind, target, repourl etc) or any place to download and run the requestor, which will request a build and recieve the result. The requestor should be setup correctly. (see below)
+3. A jenkins (behind your firewall) with jms plugin [plugin](https://plugins.jenkins.io/jms-messaging/). The plugin should be configured to use `RabbitMQ Provider` and to listen on the send queue, using the exchange and topic, which should already exist on the server(pre-created see 1).
 4. A Jenkins job/project which downloads the worker, and runs it with the appropriate parameters (see below). The job should be configured with a set of parameters.
 
 ### Requestor Configuration
@@ -15,19 +21,15 @@ The requestor MUST have following information in it, so that it can be passed as
 
 - *AMQP URI*: The full URL of amqp server, including username/password and virtual servers if any
 - *Send Queue Name*: The name of the send queue. This value should match what you configure on jenkins side
-- *Recieve Queue Name(optional)*: The name of the recieve queue. Ideally, should be seperate from send queue, and ideally unique for each run request (latter is not compulsory, but will likely result in slowdown). By default, this will be taken as `rcv_kind_target`
+- *Recieve Queue Name(optional)*: The name of the recieve queue. Ideally, should be seperate from send queue, and ideally unique for each run request (latter is not compulsory, but will likely result in slowdown). By default, this will be taken as `amqp_jenkinsjob_kind_target`
 - *Jenkins Job/Project*: The name of the jenkins job or project
-- *Jenkins Token*: The token, as set on jenkins side for triggering the build.
 - *Repo URL*: The URL of the repo to test
 - *Target*: The target of the repo to test. Can be pr no, branch name or tag name
 - *Kind*: The kind of target. `PR|BRANCH|TAG`
 - *Run Script*: The script to run on the jenkins. Relative to repo root
 - *Setup Script*: The script to run before run script. Relative to repo root.
-- *CI Message Variable* The variable containing, as configured in your CI Event Subscriber
 
 ### Worker Jenkins job configuration
-
-The worker jenkins job MUST have following parameters defined. They do not have to be set, but configured.
 
 The following information will be needed in the worker. They will need to be passed to the worker cli as parameters in your jenkins (explained further down):
 
@@ -38,17 +40,14 @@ The following information will be needed in the worker. They will need to be pas
 - *AMQP URI*: The full URL of amqp server, including username/password and virtual servers.  `AMQP_URI` env if set or can be passed as argument to cli.
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
-- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli
-
-More details down below.
-
-**NOTE**: When the worker is run, as below, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it.
+- *SSH Node file(optional)*: If provided, repersents path to json file containing infor needed to ssh into nodes and run tests. Can be passed to cli (see below for more information)
+- *CI Message Variable* The variable containing, as configured in your CI Event Subscriber (defaults to `CI)MESSAGE` env)
 
 It is also a good idea to ensure the jenkins job cleans up after itself by enabling `Delete workspace before build starts` and maybe even `Execute concurrent builds if necessary` depending on if your are ok with each build running only after previous build is finished.
 
 Any other parameter definitions are on you.
 
-### Build Script
+#### Jenkins Build Script
 
 Here is an example of a jenkins build script
 
@@ -65,6 +64,8 @@ script --return -c "ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/n
 ```
 
 **WARNING**: It is absolutely nessasary to run the worker inside a `script` as shown above so that it gets a pseudo terminal. Jenkins runs without a pseudoterminal, which can cause some of the operations to fail !!
+
+**NOTE**: When the worker is run, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
 
 ## Using the cli
 
