@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -217,11 +218,12 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 	// If we have node, then we need to use node executor
 	if nd != nil {
 		//node executor
+		workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
 		w.printAndStream(fmt.Sprintf("running tests on node %s via ssh", nd.Name))
 
-		repoDir := filepath.Join(w.cimsg.RcvIdent, w.repoDir)
+		repoDir := filepath.Join(workDir, w.repoDir)
 		//Remove any existing workdir of same name, ussually due to termination of jobs
-		cmdd1 := []string{"rm", "-rf", w.cimsg.RcvIdent}
+		cmdd1 := []string{"rm", "-rf", workDir}
 		w.printAndStreamCommand(cmdd1)
 		exd1, err := executor.NewNodeSSHExecutor(nd, "", cmdd1)
 		if err != nil {
@@ -309,7 +311,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("failed to run run script")
 		}
 		//remove workdir on success
-		cmdd2 := []string{"rm", "-rf", w.cimsg.RcvIdent}
+		cmdd2 := []string{"rm", "-rf", workDir}
 		w.printAndStreamCommand(cmdd2)
 		exd2, err := executor.NewNodeSSHExecutor(nd, "", cmdd2)
 		if err != nil {
