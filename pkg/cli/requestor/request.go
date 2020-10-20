@@ -36,11 +36,11 @@ func NewRequestOptions() *RequestOptions {
 }
 
 func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []string) error {
-	if ro.rcvIdent == "" {
-		ro.rcvIdent = fmt.Sprintf("amqp.ci.rcv.%s.%s.%s", ro.jenkinsproject, ro.kind, ro.target)
-	}
 	if ro.kind == "" {
 		ro.kind = messages.RequestTypePR
+	}
+	if ro.rcvIdent == "" {
+		ro.rcvIdent = fmt.Sprintf("amqp.ci.rcv.%s.%s.%s", ro.jenkinsproject, ro.kind, ro.target)
 	}
 	return nil
 }
