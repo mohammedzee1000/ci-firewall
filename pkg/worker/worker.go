@@ -234,7 +234,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
 		//create new workdir and repodir
-		cmdc1 := []string{"mkdir", "-p", repoDir}
+		cmdc1 := []string{"mkdir", "-p", workDir}
 		w.printAndStreamCommand(cmdc1)
 		exc1, err := executor.NewNodeSSHExecutor(nd, "", cmdc1)
 		if err != nil {
@@ -246,9 +246,9 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 		}
 		//run the tests
 		//1. Clone the repo
-		cmd1 := []string{"git", "clone", w.cimsg.RepoURL, w.repoDir}
+		cmd1 := []string{"git", "clone", w.cimsg.RepoURL, repoDir}
 		w.printAndStreamCommand(cmd1)
-		ex1, err := executor.NewNodeSSHExecutor(nd, w.cimsg.RcvIdent, cmd1)
+		ex1, err := executor.NewNodeSSHExecutor(nd, "", cmd1)
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
