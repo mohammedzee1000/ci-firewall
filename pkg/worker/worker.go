@@ -106,7 +106,6 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 	var err error
 	defer ex.Close()
 	if oldsuccess {
-		//cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		ex.SetEnvs(util.EnvMapCopy(w.envVars))
 		done := make(chan error)
 		ex.ShortStderrToStdOut()
@@ -234,7 +233,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			return false, fmt.Errorf("unable to cleanup workdir in ssh node %w", err)
 		}
 		//create new workdir and repodir
-		cmdc1 := []string{"mkdir", "-p", workDir}
+		cmdc1 := []string{"mkdir", "-p", repoDir}
 		w.printAndStreamCommand(cmdc1)
 		exc1, err := executor.NewNodeSSHExecutor(nd, "", cmdc1)
 		if err != nil {
