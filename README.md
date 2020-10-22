@@ -61,7 +61,7 @@ rm -rf ./*
 
 **WARNING**: It is absolutely nessasary to check if your jenkins runs tasks with a psedu terminal, and if not,  run the worker inside a `script` as `script --return -c "./ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null` so that it gets a pseudo terminal. Without a pseudoterminal, it can cause some of the operations to fail !!
 
-**NOTE**: When the worker is run, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
+**NOTE**: When the worker is run, it will ensure that 2 environment variables `BASE_OS=linux|windows|mac` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
 
 ## Using the cli
 
@@ -127,7 +127,7 @@ The format of th file is as below
             "user": "username to ssh into the node with",
             "address": "The address of the node, like an ip or domain name without port",
             "port": "port of ssh server, optional-defaults to 22",
-            "baseos": "linux|windows|macos",
+            "baseos": "linux|windows|mac",
             "arch": "arch of the system eg amd64",
             "password": "not recommended but you can provide password of target node",
             "privatekey": "Optional again but either this or password MUST be given."
