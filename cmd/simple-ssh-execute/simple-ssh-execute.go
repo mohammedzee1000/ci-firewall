@@ -14,6 +14,10 @@ func handleExecutorError(err error) {
 	fmt.Printf("!!!! failed to get node executor, nvm skipping %s !!!!\n", err)
 }
 
+func printCommand(cmd []string) {
+	fmt.Printf("Executing command %#v\n", cmd)
+}
+
 func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	nodes, err := node.NodesFromFile(ndpath)
 	if err != nil {
@@ -22,7 +26,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	overallsuccess := true
 	for _, n := range nodes.Nodes {
 		fmt.Printf("\n!!!! Executing against node %s !!!!\n", n.Name)
-
+		printCommand([]string{"rm", "-rf", context})
 		crm, err := executor.NewNodeSSHExecutor(&n, "", []string{"rm", "-rf", context})
 		if err != nil {
 			handleExecutorError(err)
@@ -33,6 +37,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to delete context dir %w", err)
 		}
+		printCommand([]string{"mkdir", "-p", context})
 		cmd, err := executor.NewNodeSSHExecutor(&n, "", []string{"mkdir", "-p", context})
 		if err != nil {
 			handleExecutorError(err)
@@ -43,6 +48,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to create context dir %s", err)
 		}
+		printCommand([]string{"curl", "-kLo", "run.sh", runscript})
 		gs, err := executor.NewNodeSSHExecutor(&n, context, []string{"curl", "-kLo", "run.sh", runscript})
 		if err != nil {
 			handleExecutorError(err)
@@ -53,6 +59,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to get run script %s", err)
 		}
+		printCommand([]string{"sh", "run.sh"})
 		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{"sh", "run.sh"})
 		if err != nil {
 			return false, fmt.Errorf("failed to create context dir %s", err)
