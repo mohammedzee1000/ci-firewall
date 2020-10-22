@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 sh scripts/build.sh
-pushd dist
-tar -czf ci-firewall.tar.gz ci-firewall
-tar -czf simple-ssh-execute.tar.gz simple-ssh-execute
+rm -rf dist/release
+mkdir dist/release
+pushd dist/build/linux/amd64
+ls ../../../release
+tar -czf ci-firewall-linux-amd64.tar.gz ci-firewall
+tar -czf simple-ssh-execute-linux-amd64.tar.gz simple-ssh-execute
+mv *.tar.gz ../../../release/
 popd

@@ -52,18 +52,14 @@ Any other parameter definitions are on you.
 Here is an example of a jenkins build script
 
 ```bash
-mkdir bin
-PATH="$PATH:`pwd`/bin"
-git clone https://github.com/mohammedzee1000/ci-firewall.git cif
-cd cif
-git checkout main
-go build -mod=vendor cmd/ci-firewall/ci-firewall.go
-cp -avrf ./ci-firewall ../bin/
-cd ..
-script --return -c "ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null
+rm -rf ./*
+curl -kJLO https://github.com/mohammedzee1000/ci-firewall/releases/download/${CI_FIREWALL_VERSION}/ci-firewall.tar.gz
+tar -xzf ./ci-firewall.tar.gz && rm -rf ./ci-firewall.tar.gz && chmod +x ./ci-firewall
+./ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'
+rm -rf ./*
 ```
 
-**WARNING**: It is absolutely nessasary to check if your jenkins runs tasks with a psedu terminal, and if not,  run the worker inside a `script` as shown above so that it gets a pseudo terminal. Without a pseudoterminal, it can cause some of the operations to fail !!
+**WARNING**: It is absolutely nessasary to check if your jenkins runs tasks with a psedu terminal, and if not,  run the worker inside a `script` as `script --return -c "./ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null` so that it gets a pseudo terminal. Without a pseudoterminal, it can cause some of the operations to fail !!
 
 **NOTE**: When the worker is run, it will ensure that 2 environment variables `BASE_OS=linux|windows|macos` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
 
@@ -87,11 +83,11 @@ Main Command:
 - *Recieve Ident(optional)*: The name of the queue in which replies are recieved. Defaults to `amqp.ci.rcv.jenkinsproject.kind.target`. (param `recievequeue`)
 - *Repo URL*: The cloneable repo url. (env `REPO_URL` or param `repourl`)
 - *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
-- *Kind*: The kind of request, can be `PR|BRANCH|TAG`. (env `KIND` or param `--kind`)
+- *Kind*: The kind of request, can be `PR|BRANCH|TAG`. Defaults to `PR`. (env `KIND` or param `--kind`)
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
-- *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 12 minutes. (param `--timeout`)
+- *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 15 minutes. (param `--timeout`)
 
 ### Working on a build
 
@@ -121,7 +117,6 @@ Main Command:
 
 It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`
 
-
 The format of th file is as below
 
 ```json
@@ -142,3 +137,12 @@ The format of th file is as below
 ```
 
 **WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
+
+## Optional simple-ssh-execute
+
+This is a tiny cli, simple-ssh-execute, included as part of this code. This cli enables simple use cases such as periodic runs without involving message queues. Downloading is similar to main cli, but you can also do
+
+```bash
+$ simple-ssh-execute [context-name] [path-to-node-db see above] [url of script to run]
+execution
+```
