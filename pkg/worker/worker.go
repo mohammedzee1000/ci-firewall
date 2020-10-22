@@ -186,7 +186,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 	}
 	//5 run the setup script, if it is provided
 	if w.cimsg.SetupScript != "" {
-		cmd5 := []string{"sh", w.cimsg.SetupScript}
+		cmd5 := []string{".", w.cimsg.SetupScript}
 		w.printAndStreamCommand(cmd5)
 		ex5 := executor.NewLocalExecutor(cmd5)
 		status, err = w.runCommand(status, ex5)
@@ -195,7 +195,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 		}
 	}
 	//6 run run script
-	cmd6 := []string{"sh", w.cimsg.RunScript}
+	cmd6 := []string{".", w.cimsg.RunScript}
 	w.printAndStreamCommand(cmd6)
 	ex6 := executor.NewLocalExecutor(cmd6)
 	status, err = w.runCommand(status, ex6)
@@ -287,7 +287,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 		//4. run the setup script, if it is provided
 		if w.cimsg.SetupScript != "" {
 			w.printAndStream("running setup script")
-			cmd5 := []string{"sh", w.cimsg.SetupScript}
+			cmd5 := []string{".", w.cimsg.SetupScript}
 			w.printAndStreamCommand(cmd5)
 			ex5, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd5)
 			if err != nil {
@@ -299,7 +299,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			}
 		}
 		//5. Run the run script
-		cmd6 := []string{"sh", w.cimsg.RunScript}
+		cmd6 := []string{".", w.cimsg.RunScript}
 		w.printAndStreamCommand(cmd6)
 		ex6, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd6)
 		if err != nil {

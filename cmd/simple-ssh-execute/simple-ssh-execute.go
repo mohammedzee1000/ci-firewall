@@ -59,10 +59,10 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to get run script %s", err)
 		}
-		printCommand([]string{"sh", "run.sh"})
-		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{"sh", "run.sh"})
+		printCommand([]string{".", "run.sh"})
+		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{".", "run.sh"})
 		if err != nil {
-			return false, fmt.Errorf("failed to create context dir %s", err)
+			return false, fmt.Errorf("failed to run run script %s", err)
 		}
 		cs, err = runCMD(cs, rs)
 		if err != nil {
