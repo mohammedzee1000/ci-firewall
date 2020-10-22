@@ -38,7 +38,7 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 		cfg = &ssh.ClientConfig{
 			User: nd.User,
 			Auth: []ssh.AuthMethod{
-				ssh.Password("yourpassword"),
+				ssh.Password(nd.SSHPassword),
 			},
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		}
