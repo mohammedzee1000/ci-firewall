@@ -10,17 +10,22 @@ import (
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
 )
 
+func handleExecutorError(err error) {
+	fmt.Printf("!!!! failed to get node executor, nvm skipping %s !!!!\n", err)
+}
+
 func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	nodes, err := node.NodesFromFile(ndpath)
 	if err != nil {
 		return false, fmt.Errorf("failed to get nodes %s", err)
 	}
-
+	overallsuccess := true
 	for _, n := range nodes.Nodes {
-		fmt.Printf("Executing against node %s\n%#v\n", n.Name, n)
+		fmt.Printf("\n!!!! Executing against node %s !!!!\n", n.Name)
 		crm, err := executor.NewNodeSSHExecutor(&n, "", []string{"rm", "-rf", context})
 		if err != nil {
-			return false, fmt.Errorf("failed to get node executor %w", err)
+			handleExecutorError(err)
+			return false, nil
 		}
 		cs, err := runCMD(true, crm)
 		if err != nil {
@@ -28,7 +33,8 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		}
 		cmd, err := executor.NewNodeSSHExecutor(&n, "", []string{"mkdir", "-p", context})
 		if err != nil {
-			return false, fmt.Errorf("failed to get node executor %w", err)
+			handleExecutorError(err)
+			return false, nil
 		}
 		cs, err = runCMD(cs, cmd)
 		if err != nil {
@@ -40,11 +46,14 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		}
 		cs, err = runCMD(cs, rs)
 		if err != nil {
-			return false, fmt.Errorf("failed to run run script %s", err)
+			handleExecutorError(err)
+			return false, nil
 		}
-		return cs, nil
+		if overallsuccess {
+			overallsuccess = cs
+		}
 	}
-	return false, nil
+	return overallsuccess, nil
 }
 
 func runCMD(oldsucess bool, ex *executor.NodeSSHExecutor) (bool, error) {
