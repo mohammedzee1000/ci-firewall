@@ -25,7 +25,8 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		crm, err := executor.NewNodeSSHExecutor(&n, "", []string{"rm", "-rf", context})
 		if err != nil {
 			handleExecutorError(err)
-			return false, nil
+			overallsuccess = false
+			continue
 		}
 		cs, err := runCMD(true, crm)
 		if err != nil {
@@ -34,7 +35,8 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		cmd, err := executor.NewNodeSSHExecutor(&n, "", []string{"mkdir", "-p", context})
 		if err != nil {
 			handleExecutorError(err)
-			return false, nil
+			overallsuccess = false
+			continue
 		}
 		cs, err = runCMD(cs, cmd)
 		if err != nil {
@@ -47,7 +49,8 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		cs, err = runCMD(cs, rs)
 		if err != nil {
 			handleExecutorError(err)
-			return false, nil
+			overallsuccess = false
+			continue
 		}
 		if overallsuccess {
 			overallsuccess = cs
