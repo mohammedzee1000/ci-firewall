@@ -81,19 +81,13 @@ func runCMD(oldsucess bool, ex *executor.NodeSSHExecutor) (bool, error) {
 }
 
 func main() {
-	nf := os.Getenv("ND_FILE")
-	if nf == "" {
-		log.Fatal("please provide node information ND_FILE")
+	if len(os.Args) < 4 {
+		log.Fatalf("usage: ssh-run-cmd [context] [ndfile] [runscript]")
 	}
-	rs := os.Getenv("RUN_SCRIPT")
-	if rs != "" {
-		log.Fatalf("please provide run script RUN_SCRIPT")
-	}
-	ctx := os.Getenv("CONTEXT")
-	if ctx == "" {
-		log.Fatalf("please provide context CONTEXT")
-	}
-	success, err := runTestsOnNodes(nf, rs, ctx)
+	contx := os.Args[1]
+	ndfile := os.Args[2]
+	runscript := os.Args[3]
+	success, err := runTestsOnNodes(ndfile, runscript, contx)
 	if err != nil {
 		log.Fatalf("failed to run tests %s", err)
 	}
