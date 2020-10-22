@@ -25,7 +25,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	}
 	overallsuccess := true
 	for _, n := range nodes.Nodes {
-		fmt.Printf("\n!!!! Executing against node %s !!!!\n", n.Name)
+		fmt.Printf("\n!!!! Executing against node %s !!!!\n\n", n.Name)
 		printCommand([]string{"rm", "-rf", context})
 		crm, err := executor.NewNodeSSHExecutor(&n, "", []string{"rm", "-rf", context})
 		if err != nil {
