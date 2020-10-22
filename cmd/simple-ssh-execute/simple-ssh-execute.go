@@ -22,6 +22,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	overallsuccess := true
 	for _, n := range nodes.Nodes {
 		fmt.Printf("\n!!!! Executing against node %s !!!!\n", n.Name)
+
 		crm, err := executor.NewNodeSSHExecutor(&n, "", []string{"rm", "-rf", context})
 		if err != nil {
 			handleExecutorError(err)
@@ -42,7 +43,17 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to create context dir %s", err)
 		}
-		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{"sh", runscript})
+		gs, err := executor.NewNodeSSHExecutor(&n, context, []string{"curl", "-kLo", "run.sh", runscript})
+		if err != nil {
+			handleExecutorError(err)
+			overallsuccess = false
+			continue
+		}
+		cs, err = runCMD(cs, gs)
+		if err != nil {
+			return false, fmt.Errorf("failed to get run script %s", err)
+		}
+		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{"sh", "run.sh"})
 		if err != nil {
 			return false, fmt.Errorf("failed to create context dir %s", err)
 		}
@@ -59,7 +70,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 	return overallsuccess, nil
 }
 
-func runCMD(oldsucess bool, ex *executor.NodeSSHExecutor) (bool, error) {
+func runCMD(oldsucess bool, ex executor.Executor) (bool, error) {
 	var err error
 	defer ex.Close()
 	if oldsucess {
@@ -95,7 +106,7 @@ func runCMD(oldsucess bool, ex *executor.NodeSSHExecutor) (bool, error) {
 
 func main() {
 	if len(os.Args) < 4 {
-		log.Fatalf("usage: ssh-run-cmd [context] [ndfile] [runscript]")
+		log.Fatalf("usage: simple-ssh-execute [context] [ndfilepath] [runscripturl]")
 	}
 	contx := os.Args[1]
 	ndfile := os.Args[2]
