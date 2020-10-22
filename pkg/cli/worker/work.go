@@ -59,6 +59,12 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal CI message %w", err)
 	}
+	if wo.cimsg.SetupScript != "" && wo.cimsg.SetupScript[0] != '.' {
+		wo.cimsg.SetupScript = fmt.Sprintf("./%s", wo.cimsg.SetupScript)
+	}
+	if wo.cimsg.RunScript != "" && wo.cimsg.RunScript[0] != '.' {
+		wo.cimsg.RunScript = fmt.Sprintf("./%s", wo.cimsg.RunScript)
+	}
 	return wo.envVarsArrToEnvVars()
 }
 

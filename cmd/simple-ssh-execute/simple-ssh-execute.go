@@ -19,6 +19,7 @@ func printCommand(cmd []string) {
 }
 
 func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
+	fmt.Printf("Executing runscript %s on context %s\n", runscript, context)
 	nodes, err := node.NodesFromFile(ndpath)
 	if err != nil {
 		return false, fmt.Errorf("failed to get nodes %s", err)
@@ -38,7 +39,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 			return false, fmt.Errorf("failed to delete context dir %w", err)
 		}
 		printCommand([]string{"mkdir", "-p", context})
-		cmd, err := executor.NewNodeSSHExecutor(&n, "", []string{"mkdir", "-p", context})
+		cmd, err := executor.NewNodeSSHExecutor(&n, "", []string{"mkdir", context})
 		if err != nil {
 			handleExecutorError(err)
 			overallsuccess = false
@@ -60,7 +61,7 @@ func runTestsOnNodes(ndpath, runscript, context string) (bool, error) {
 			return false, fmt.Errorf("failed to get run script %s", err)
 		}
 		printCommand([]string{".", "run.sh"})
-		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{".", "run.sh"})
+		rs, err := executor.NewNodeSSHExecutor(&n, context, []string{".", "./run.sh"})
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script %s", err)
 		}
