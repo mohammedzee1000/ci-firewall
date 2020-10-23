@@ -113,7 +113,7 @@ Main Command:
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
-- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodefile file`)
+- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodesfile file`)
 - *Stand Alone(optional)*: defaults to false. In this more the worker assumes there is no request, hence no queues communication. Everything else remains same. (param `--standalone=true`). This also means you will need to provide the `CI_MESSAGE` yourself. See below for example.
 
 ## SSHNodeFile
