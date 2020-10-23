@@ -94,20 +94,24 @@ func (w *Worker) sendBuildInfo() error {
 	return nil
 }
 
-func (w *Worker) printAndStream(msg string) error {
-	err := w.psb.Println(msg, false)
+func (w *Worker) printAndStreamLog(msg string) error {
+	err := w.psb.Print(msg)
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
 	return nil
 }
 
+func (w *Worker) printAndStreamInfo(info string) error {
+	return w.psb.Println(info)
+}
+
 func (w *Worker) printAndStreamCommand(cmdArgs []string) error {
-	return w.psb.Println(fmt.Sprintf("Executing command %v", cmdArgs), true)
+	return w.printAndStreamInfo(fmt.Sprintf("Executing command %v", cmdArgs))
 }
 
 func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
-	return w.psb.Println(fmt.Sprintf("Executing command [%s]", cmdArgs), true)
+	return w.printAndStreamInfo(fmt.Sprintf("Executing command [%s]", cmdArgs))
 }
 
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error) {
@@ -122,10 +126,11 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 		go func(done chan error) {
 			for scanner.Scan() {
 				line := scanner.Text()
-				err1 := w.printAndStream(line)
+				err1 := w.printAndStreamLog(line)
 				if err1 != nil {
 					done <- err1
 				}
+				//				time.Sleep(1 * time.Millisecond)
 			}
 			done <- nil
 		}(done)
@@ -147,7 +152,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error)
 		}
 		return true, nil
 	}
-	w.printAndStream("previous command failed or skipped, skipping")
+	w.printAndStreamInfo("previous command failed or skipped, skipping")
 	return false, nil
 }
 
@@ -158,7 +163,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 	var chkout string
 
 	//local executor
-	w.printAndStream("running tests locally")
+	w.printAndStreamInfo("running tests locally")
 	//1. clone the repo
 	cmd1 := []string{"git", "clone", w.cimsg.RepoURL, w.repoDir}
 	w.printAndStreamCommand(cmd1)
@@ -237,7 +242,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 	if nd != nil {
 		//node executor
 		workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
-		w.printAndStream(fmt.Sprintf("!!!running tests on node %s via ssh!!!", nd.Name))
+		w.printAndStreamInfo(fmt.Sprintf("!!!running tests on node %s via ssh!!!", nd.Name))
 
 		repoDir := filepath.Join(workDir, w.repoDir)
 		//Remove any existing workdir of same name, ussually due to termination of jobs
@@ -305,7 +310,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 		}
 		//4. run the setup script, if it is provided
 		if w.cimsg.SetupScript != "" {
-			w.printAndStream("running setup script")
+			w.printAndStreamInfo("running setup script")
 			cmd5 := []string{".", w.cimsg.SetupScript}
 			w.printAndStreamCommand(cmd5)
 			ex5, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd5)

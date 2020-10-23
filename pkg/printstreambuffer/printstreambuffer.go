@@ -40,11 +40,17 @@ func (psb *PrintStreamBuffer) Flush() error {
 	return nil
 }
 
-func (psb *PrintStreamBuffer) Println(msg string, immediate bool) error {
-	psb.message = fmt.Sprintf("%s\n%s", psb.message, msg)
+func (psb *PrintStreamBuffer) Print(data string) error {
+	psb.message = fmt.Sprintf("%s%s", psb.message, data)
 	psb.counter++
-	if immediate || psb.counter >= psb.bufferSize {
+	if psb.counter >= psb.bufferSize {
 		return psb.Flush()
 	}
 	return nil
+}
+
+func (psb *PrintStreamBuffer) Println(data string) error {
+	psb.message = fmt.Sprintf("%s%s\n", psb.message, data)
+	psb.counter++
+	return psb.Flush()
 }
