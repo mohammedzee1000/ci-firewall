@@ -28,6 +28,7 @@ type RequestOptions struct {
 	setupScript      string
 	rcvIdent         string
 	jenkinsproject   string
+	runScriptUrl     string
 	timeout          time.Duration
 }
 
@@ -85,6 +86,7 @@ func (ro *RequestOptions) Run() (err error) {
 		ro.setupScript,
 		ro.runScript,
 		ro.rcvIdent,
+		ro.runScriptUrl,
 	)
 	err = ro.requestor.Run()
 	if err != nil {
@@ -131,6 +133,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
+	cmd.Flags().StringVar(&o.runScriptUrl, "runscripturl", "", "the url of remote run script, if any. Must be providede with --runscript as that is what it will be downloaded as")
 	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the setup script to run")
 	cmd.Flags().DurationVar(&o.timeout, "timeout", 15*time.Minute, "timeout duration ")
 	return cmd

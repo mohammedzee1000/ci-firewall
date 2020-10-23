@@ -33,9 +33,9 @@ type Worker struct {
 	psb             *printstreambuffer.PrintStreamBuffer
 }
 
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
+func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
 	w := &Worker{
-		rcvq:            queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent),
+		rcvq:            nil,
 		cimsg:           cimsg,
 		jenkinsProject:  jenkinsProject,
 		jenkinsBuild:    jenkinsBuild,
@@ -47,6 +47,9 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
 	}
+	if !standalone {
+		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
+	}
 	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, 10, w.jenkinsBuild)
 	return w
 }
@@ -57,9 +60,9 @@ func (w *Worker) cleanupOldBuilds() error {
 		for k, v := range params {
 			if k == w.cimsgenv {
 				//v is the cimsg of this job
-				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "")
+				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript {
+				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL {
 					return true
 				}
 			}
@@ -74,16 +77,21 @@ func (w *Worker) cleanupOldBuilds() error {
 
 // 2
 func (w *Worker) initQueues() error {
-	err := w.rcvq.Init()
-	if err != nil {
-		return fmt.Errorf("failed to initialize rcv queue %w", err)
+	if w.rcvq != nil {
+		err := w.rcvq.Init()
+		if err != nil {
+			return fmt.Errorf("failed to initialize rcv queue %w", err)
+		}
 	}
 	return nil
 }
 
 // 3
 func (w *Worker) sendBuildInfo() error {
-	return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
+	if w.rcvq != nil {
+		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
+	}
+	return nil
 }
 
 func (w *Worker) printAndStream(msg string) error {
@@ -194,11 +202,22 @@ func (w *Worker) runTestsLocally() (bool, error) {
 			return false, fmt.Errorf("failed to run setup script")
 		}
 	}
-	//6 run run script
-	cmd6 := []string{".", w.cimsg.RunScript}
-	w.printAndStreamCommand(cmd6)
-	ex6 := executor.NewLocalExecutor(cmd6)
-	status, err = w.runCommand(status, ex6)
+	//6.1 Download runscript, if provided
+	if w.cimsg.RunScriptURL != "" {
+		cmd61 := []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL}
+		w.printAndStreamCommand(cmd61)
+		ex61 := executor.NewLocalExecutor(cmd61)
+		status, err = w.runCommand(status, ex61)
+		if err != nil {
+			return false, fmt.Errorf("failed to download run script")
+		}
+	}
+
+	//6.2 run run script
+	cmd62 := []string{".", w.cimsg.RunScript}
+	w.printAndStreamCommand(cmd62)
+	ex62 := executor.NewLocalExecutor(cmd62)
+	status, err = w.runCommand(status, ex62)
 	if err != nil {
 		return false, fmt.Errorf("failed to run run script")
 	}
@@ -218,7 +237,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 	if nd != nil {
 		//node executor
 		workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
-		w.printAndStream(fmt.Sprintf("running tests on node %s via ssh", nd.Name))
+		w.printAndStream(fmt.Sprintf("!!!running tests on node %s via ssh!!!", nd.Name))
 
 		repoDir := filepath.Join(workDir, w.repoDir)
 		//Remove any existing workdir of same name, ussually due to termination of jobs
@@ -298,14 +317,27 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 				return false, fmt.Errorf("failed to run setup script")
 			}
 		}
-		//5. Run the run script
-		cmd6 := []string{".", w.cimsg.RunScript}
-		w.printAndStreamCommand(cmd6)
-		ex6, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd6)
+		//5.1  Dowmload runscript, if url provided
+		if w.cimsg.RunScriptURL != "" {
+			cmd61 := []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL}
+			w.printAndStreamCommand(cmd61)
+			ex61, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd61)
+			if err != nil {
+				return false, fmt.Errorf("unable to create ssh executor %w", err)
+			}
+			status, err = w.runCommand(status, ex61)
+			if err != nil {
+				return false, fmt.Errorf("failed to download run script")
+			}
+		}
+		//5.2. Run the run script
+		cmd62 := []string{".", w.cimsg.RunScript}
+		w.printAndStreamCommand(cmd62)
+		ex62, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd62)
 		if err != nil {
 			return false, fmt.Errorf("unable to create ssh executor %w", err)
 		}
-		status, err = w.runCommand(status, ex6)
+		status, err = w.runCommand(status, ex62)
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
 		}
@@ -352,7 +384,10 @@ func (w *Worker) test() (bool, error) {
 
 // 5
 func (w *Worker) sendStatusMessage(success bool) error {
-	return w.rcvq.Publish(false, messages.NewStatusMessage(w.jenkinsBuild, success))
+	if w.rcvq != nil {
+		return w.rcvq.Publish(false, messages.NewStatusMessage(w.jenkinsBuild, success))
+	}
+	return nil
 }
 
 func (w *Worker) Run() error {
@@ -382,5 +417,8 @@ func (w *Worker) Run() error {
 }
 
 func (w *Worker) Shutdown() error {
-	return w.rcvq.Shutdown()
+	if w.rcvq != nil {
+		return w.rcvq.Shutdown()
+	}
+	return nil
 }

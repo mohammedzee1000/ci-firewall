@@ -27,10 +27,12 @@ func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int) *PrintSt
 func (psb *PrintStreamBuffer) Flush() error {
 	if psb.counter > 0 {
 		fmt.Println(psb.message)
-		lm := messages.NewLogsMessage(psb.buildno, psb.message)
-		err := psb.q.Publish(false, lm)
-		if err != nil {
-			return fmt.Errorf("failed to publish buffer to %w", err)
+		if psb.q != nil {
+			lm := messages.NewLogsMessage(psb.buildno, psb.message)
+			err := psb.q.Publish(false, lm)
+			if err != nil {
+				return fmt.Errorf("failed to publish buffer to %w", err)
+			}
 		}
 		psb.message = ""
 		psb.counter = 0
