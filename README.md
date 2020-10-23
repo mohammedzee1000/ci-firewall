@@ -28,6 +28,7 @@ The requestor MUST have following information in it, so that it can be passed as
 - *Kind*: The kind of target. `PR|BRANCH|TAG`
 - *Run Script*: The script to run on the jenkins. Relative to repo root
 - *Setup Script*: The script to run before run script. Relative to repo root.
+- *Run Script URL*: The url to remote run script, if any. Will be saved as `Run Script`
 
 ### Worker Jenkins job configuration
 
@@ -88,6 +89,7 @@ Main Command:
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
 - *Timeout Duration(optional)*: The timeout duration for worker. Takes values like `1h10m10s`. Defaults to 15 minutes. (param `--timeout`)
+- *Run Script URL(optional)*: The URL to the runscript if any. This will be saved as `Run Script`. (param `--runscripturl`)
 
 ### Working on a build
 
@@ -111,7 +113,8 @@ Main Command:
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
-- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli `param --sshnodefile file`
+- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodefile file`)
+- *Stand Alone(optional)*: defaults to false. In this more the worker assumes there is no request, hence no queues communication. Everything else remains same. (param `--standalone=true`). This also means you will need to provide the `CI_MESSAGE` yourself. See below for example.
 
 ## SSHNodeFile
 
@@ -138,11 +141,10 @@ The format of th file is as below
 
 **WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
 
-## Optional simple-ssh-execute
+## Optional Standalone worker mode
 
-This is a tiny cli, simple-ssh-execute, included as part of this code. This cli enables simple use cases such as periodic runs without involving message queues. Downloading is similar to main cli, but you can also do
+This allows you to use worker in standalone mode. Note however, you will need to provide `CI_MESSAGE` yourself. See below for example.
 
 ```bash
-$ simple-ssh-execute [context-name] [path-to-node-db see above] [url of script to run]
-execution
+export CI_MESSAGE='{"repourl": "repourl", "kind": "PR", "target": "target", "setupscript": "setupscript", "runscript": "runscript", "rcvident": "rcvident", "runscripturl": "http://url"}'
 ```
