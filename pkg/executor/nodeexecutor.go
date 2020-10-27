@@ -70,8 +70,8 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 }
 
 func (ne *NodeSSHExecutor) BufferedReader() (*bufio.Reader, error) {
-	ne.session.Stderr = ne.session.Stdout
 	stdoutpipe, err := ne.session.StdoutPipe()
+	ne.session.Stderr = ne.session.Stdout
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdout pipe %w", err)
 	}

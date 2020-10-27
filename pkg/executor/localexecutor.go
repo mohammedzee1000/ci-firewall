@@ -20,8 +20,8 @@ func NewLocalExecutor(cmdArgs []string) *LocalExecutor {
 }
 
 func (le *LocalExecutor) BufferedReader() (*bufio.Reader, error) {
-	le.cmd.Stderr = le.cmd.Stdout
 	stdoutpipe, err := le.cmd.StdoutPipe()
+	le.cmd.Stderr = le.cmd.Stdout
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdout pipe %w", err)
 	}
