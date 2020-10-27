@@ -141,6 +141,8 @@ The format of th file is as below
 
 **WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
 
+**WARNING**: When using sshnode with windows/mac, some of the system paths may not get exposed correctly. If you rely on any such paths, eg /usr/local/bin on mac for eg, You might want to set the path again in your script
+
 ## Optional Standalone worker mode
 
 This allows you to use worker in standalone mode. Note however, you will need to provide `CI_MESSAGE` yourself. See below for example.
