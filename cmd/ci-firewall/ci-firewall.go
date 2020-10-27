@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/mohammedzee1000/ci-firewall/pkg/cli"
-	"github.com/mohammedzee1000/ci-firewall/pkg/cli/genericclioptions"
+	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli"
+	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/genericclioptions"
 )
 
 func main() {

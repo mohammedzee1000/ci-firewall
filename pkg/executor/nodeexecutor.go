@@ -3,6 +3,7 @@ package executor
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
@@ -71,11 +72,14 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 
 func (ne *NodeSSHExecutor) BufferedReader() (*bufio.Reader, error) {
 	stdoutpipe, err := ne.session.StdoutPipe()
-	ne.session.Stderr = ne.session.Stdout
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stdout pipe %w", err)
+		return nil, fmt.Errorf("failed to pipe stdout %w", err)
 	}
-	return bufio.NewReader(stdoutpipe), nil
+	stderrpipe, err := ne.session.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to pipe stderr %w", err)
+	}
+	return bufio.NewReader(io.MultiReader(stdoutpipe, stderrpipe)), nil
 }
 
 func (ne *NodeSSHExecutor) Start() error {
