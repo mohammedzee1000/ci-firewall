@@ -17,19 +17,20 @@ import (
 const WorkRecommendedCommandName = "work"
 
 type WorkOptions struct {
-	worker          *worker.Worker
-	amqpURI         string
-	jenkinsURL      string
-	jenkinsProject  string
-	jenkinsBuild    int
-	jenkinsUser     string
-	jenkinsPassword string
-	envVarsArr      []string
-	envVars         map[string]string
-	sshNodesFile    string
-	cimsgenv        string
-	standalone      bool
-	cimsg           *messages.RemoteBuildRequestMessage
+	worker           *worker.Worker
+	amqpURI          string
+	jenkinsURL       string
+	jenkinsProject   string
+	jenkinsBuild     int
+	jenkinsUser      string
+	jenkinsPassword  string
+	envVarsArr       []string
+	envVars          map[string]string
+	sshNodesFile     string
+	cimsgenv         string
+	standalone       bool
+	streambufferSize int
+	cimsg            *messages.RemoteBuildRequestMessage
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -72,6 +73,9 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 func (wo *WorkOptions) Validate() (err error) {
 	if !wo.standalone && wo.amqpURI == "" {
 		return fmt.Errorf("please provide AMQP URI")
+	}
+	if wo.streambufferSize <= 5 {
+		return fmt.Errorf("stream buffer size should be greater than 5")
 	}
 	if wo.jenkinsProject == "" {
 		return fmt.Errorf("provide Jenkins Project")
@@ -122,7 +126,7 @@ func (wo *WorkOptions) Run() (err error) {
 		}
 	}
 	wo.worker = worker.NewWorker(
-		wo.standalone, wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv, wo.cimsg, wo.envVars, wo.jenkinsBuild, nl,
+		wo.standalone, wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv, wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl,
 	)
 	err = wo.worker.Run()
 	if err != nil {
@@ -154,5 +158,6 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.sshNodesFile, "sshnodesfile", "", "sshnodesfile is path of json file containing node information. If provided tests will be done by sshing to the nodes see docs")
 	cmd.Flags().StringArrayVar(&o.envVarsArr, "env", []string{}, "additional env vars to expose to build and run scripts")
 	cmd.Flags().BoolVar(&o.standalone, "standalone", false, "is this worker standalone, ie no replyback with message queue")
+	cmd.Flags().IntVar(&o.streambufferSize, "streambuffersize", 10, "the size of stream buffer, default to 10.")
 	return cmd
 }

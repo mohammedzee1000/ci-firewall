@@ -1,9 +1,8 @@
 package executor
 
 import (
+	"bufio"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
@@ -56,6 +55,7 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 		return nil, fmt.Errorf("unable to connect to ssh host %w", err)
 	}
 	session, err := client.NewSession()
+	//session.RequestPty("", 100, 100)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create session %w", err)
 	}
@@ -69,17 +69,13 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 	}, nil
 }
 
-func (ne *NodeSSHExecutor) StdoutPipe() (io.ReadCloser, error) {
-	r, err := ne.session.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	rcl := ioutil.NopCloser(r)
-	return rcl, nil
-}
-
-func (ne *NodeSSHExecutor) ShortStderrToStdOut() {
+func (ne *NodeSSHExecutor) BufferedReader() (*bufio.Reader, error) {
 	ne.session.Stderr = ne.session.Stdout
+	stdoutpipe, err := ne.session.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdout pipe %w", err)
+	}
+	return bufio.NewReader(stdoutpipe), nil
 }
 
 func (ne *NodeSSHExecutor) Start() error {
@@ -135,4 +131,15 @@ func (ne *NodeSSHExecutor) SetEnvs(envVars map[string]string) error {
 
 func (ne *NodeSSHExecutor) Session() *ssh.Session {
 	return ne.session
+}
+
+func (ne *NodeSSHExecutor) CombinedOutput() ([]byte, error) {
+	cmdstr := strings.Join(ne.cmdArgs, " ")
+	if ne.workdir != "" {
+		cmdstr = fmt.Sprintf("cd %s && %s", ne.workdir, cmdstr)
+	}
+
+	cmdstr = fmt.Sprintf("%s%s", ne.envString, cmdstr)
+	fmt.Println("running ", cmdstr)
+	return ne.session.CombinedOutput(cmdstr)
 }

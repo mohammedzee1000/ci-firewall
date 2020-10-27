@@ -1,8 +1,8 @@
 package executor
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 
@@ -19,12 +19,13 @@ func NewLocalExecutor(cmdArgs []string) *LocalExecutor {
 	}
 }
 
-func (le *LocalExecutor) StdoutPipe() (io.ReadCloser, error) {
-	return le.cmd.StdoutPipe()
-}
-
-func (le *LocalExecutor) ShortStderrToStdOut() {
+func (le *LocalExecutor) BufferedReader() (*bufio.Reader, error) {
 	le.cmd.Stderr = le.cmd.Stdout
+	stdoutpipe, err := le.cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdout pipe %w", err)
+	}
+	return bufio.NewReader(stdoutpipe), nil
 }
 
 func (le *LocalExecutor) Start() error {

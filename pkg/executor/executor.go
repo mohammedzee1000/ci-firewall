@@ -1,10 +1,11 @@
 package executor
 
-import "io"
+import (
+	"bufio"
+)
 
 type Executor interface {
-	StdoutPipe() (io.ReadCloser, error)
-	ShortStderrToStdOut()
+	BufferedReader() (*bufio.Reader, error)
 	Start() error
 	Wait() error
 	ExitCode() int

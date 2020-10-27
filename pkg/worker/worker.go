@@ -1,9 +1,9 @@
 package worker
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +33,7 @@ type Worker struct {
 	psb             *printstreambuffer.PrintStreamBuffer
 }
 
-func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, sshNodes *node.NodeList) *Worker {
+func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -50,7 +50,7 @@ func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPasswor
 	if !standalone {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
 	}
-	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, 10, w.jenkinsBuild)
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild)
 	return w
 }
 
@@ -115,22 +115,24 @@ func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
 }
 
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error) {
-	var err error
 	defer ex.Close()
 	if oldsuccess {
 		ex.SetEnvs(util.EnvMapCopy(w.envVars))
 		done := make(chan error)
-		ex.ShortStderrToStdOut()
-		r, _ := ex.StdoutPipe()
-		scanner := bufio.NewScanner(r)
+		rdr, err := ex.BufferedReader()
+		if err != nil {
+			return false, fmt.Errorf("failed to get buffered reader %w", err)
+		}
 		go func(done chan error) {
-			for scanner.Scan() {
-				line := scanner.Text()
-				err1 := w.printAndStreamLog(line)
-				if err1 != nil {
-					done <- err1
+			for {
+				data, err := rdr.ReadString('\n')
+				if err != nil {
+					if err != io.EOF {
+						done <- fmt.Errorf("error while reading from buffer %w", err)
+					}
+					break
 				}
-				//				time.Sleep(1 * time.Millisecond)
+				w.printAndStreamLog(data)
 			}
 			done <- nil
 		}(done)
