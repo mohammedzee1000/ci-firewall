@@ -20,9 +20,10 @@ type RemoteBuildRequestMessage struct {
 	RunScript    string `json:"runscript"`
 	RcvIdent     string `json:"rcvident"`
 	RunScriptURL string `json:"runscripturl"`
+	MainBranch   string `json:"mainbranch"`
 }
 
-func NewRemoteBuildRequestMessage(repoURL, kind, target, setupscript, runscript, recieveQueueName, runscripturl string) *RemoteBuildRequestMessage {
+func NewRemoteBuildRequestMessage(repoURL, kind, target, setupscript, runscript, recieveQueueName, runscripturl, mainBranch string) *RemoteBuildRequestMessage {
 	r := &RemoteBuildRequestMessage{
 		RepoURL:      repoURL,
 		Kind:         kind,
@@ -31,6 +32,7 @@ func NewRemoteBuildRequestMessage(repoURL, kind, target, setupscript, runscript,
 		RunScript:    runscript,
 		RcvIdent:     recieveQueueName,
 		RunScriptURL: runscripturl,
+		MainBranch:   mainBranch,
 	}
 	return r
 }

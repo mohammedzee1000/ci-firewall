@@ -60,9 +60,9 @@ func (w *Worker) cleanupOldBuilds() error {
 		for k, v := range params {
 			if k == w.cimsgenv {
 				//v is the cimsg of this job
-				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "")
+				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL {
+				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch {
 					return true
 				}
 			}
@@ -186,19 +186,36 @@ func (w *Worker) runTestsLocally() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch pr %w", err)
 		}
-	} else if w.cimsg.Target == messages.RequestTypeBranch {
-		chkout = w.cimsg.Target
-	} else if w.cimsg.Kind == messages.RequestTypeTag {
-		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
+		cmd3_1 := []string{"git", "checkout", w.cimsg.MainBranch}
+		w.printAndStreamCommand(cmd3_1)
+		ex3_1 := executor.NewLocalExecutor(cmd3_1)
+		status, err = w.runCommand(status, ex3_1)
+		if err != nil {
+			return false, fmt.Errorf("failed to switch to main branch %w", err)
+		}
+		cmd3_2 := []string{"git", "merge", chkout, "--no-ff", "--no-edit"}
+		w.printAndStreamCommand(cmd3_2)
+		ex3_2 := executor.NewLocalExecutor(cmd3_2)
+		status, err = w.runCommand(status, ex3_2)
+		if err != nil {
+			return false, fmt.Errorf("failed to fast forward merge %w", err)
+		}
+	} else {
+		if w.cimsg.Target == messages.RequestTypeBranch {
+			chkout = w.cimsg.Target
+		} else if w.cimsg.Kind == messages.RequestTypeTag {
+			chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
+		}
+		//4 checkout
+		cmd4 := []string{"git", "checkout", chkout}
+		w.printAndStreamCommand(cmd4)
+		ex4 := executor.NewLocalExecutor(cmd4)
+		status, err = w.runCommand(status, ex4)
+		if err != nil {
+			return false, fmt.Errorf("failed to checkout %w", err)
+		}
 	}
-	//4 checkout
-	cmd4 := []string{"git", "checkout", chkout}
-	w.printAndStreamCommand(cmd4)
-	ex4 := executor.NewLocalExecutor(cmd4)
-	status, err = w.runCommand(status, ex4)
-	if err != nil {
-		return false, fmt.Errorf("failed to checkout %w", err)
-	}
+
 	//5 run the setup script, if it is provided
 	if w.cimsg.SetupScript != "" {
 		cmd5 := []string{".", w.cimsg.SetupScript}
@@ -294,21 +311,43 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			if err != nil {
 				return false, fmt.Errorf("failed to fetch pr %w", err)
 			}
-		} else if w.cimsg.Kind == messages.RequestTypeBranch {
-			chkout = w.cimsg.Target
-		} else if w.cimsg.Kind == messages.RequestTypeTag {
-			chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
-		}
-		//3. Checkout target
-		cmd4 := []string{"git", "checkout", chkout}
-		w.printAndStreamCommand(cmd4)
-		ex4, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd4)
-		if err != nil {
-			return false, fmt.Errorf("unable to create ssh executor %w", err)
-		}
-		status, err = w.runCommand(status, ex4)
-		if err != nil {
-			return false, fmt.Errorf("failed to checkout %w", err)
+			cmd3_1 := []string{"git", "checkout", w.cimsg.MainBranch}
+			w.printAndStreamCommand(cmd3_1)
+			ex3_1, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd3_1)
+			if err != nil {
+				return false, fmt.Errorf("unable to create ssh executor %w", err)
+			}
+			status, err = w.runCommand(status, ex3_1)
+			if err != nil {
+				return false, fmt.Errorf("failed to switch to main branch %w", err)
+			}
+			cmd3_2 := []string{"git", "merge", chkout, "---no-ff", "--no-edit"}
+			w.printAndStreamCommand(cmd3_2)
+			ex3_2, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd3_2)
+			if err != nil {
+				return false, fmt.Errorf("unable to create ssh executor %w", err)
+			}
+			status, err = w.runCommand(status, ex3_2)
+			if err != nil {
+				return false, fmt.Errorf("failed to fast forward merge %w", err)
+			}
+		} else {
+			if w.cimsg.Kind == messages.RequestTypeBranch {
+				chkout = w.cimsg.Target
+			} else if w.cimsg.Kind == messages.RequestTypeTag {
+				chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
+			}
+			//3. Checkout target
+			cmd4 := []string{"git", "checkout", chkout}
+			w.printAndStreamCommand(cmd4)
+			ex4, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd4)
+			if err != nil {
+				return false, fmt.Errorf("unable to create ssh executor %w", err)
+			}
+			status, err = w.runCommand(status, ex4)
+			if err != nil {
+				return false, fmt.Errorf("failed to checkout %w", err)
+			}
 		}
 		//4. run the setup script, if it is provided
 		if w.cimsg.SetupScript != "" {

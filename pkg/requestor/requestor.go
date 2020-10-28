@@ -20,10 +20,11 @@ type Requestor struct {
 	setupScript      string
 	recieveQueueName string
 	runScriptURL     string
+	mainBranch       string
 	done             chan error
 }
 
-func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL string) *Requestor {
+func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch string) *Requestor {
 	r := &Requestor{
 		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
 		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
@@ -35,6 +36,7 @@ func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target
 		recieveQueueName: recieveQueueName,
 		setupScript:      setupScript,
 		runScriptURL:     runScriptURL,
+		mainBranch:       mainBranch,
 		done:             make(chan error),
 	}
 	return r
@@ -57,7 +59,7 @@ func (r *Requestor) initQueus() error {
 
 func (r *Requestor) sendBuildRequest() error {
 	var err error
-	err = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL))
+	err = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch))
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}
