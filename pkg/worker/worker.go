@@ -193,7 +193,7 @@ func (w *Worker) runTestsLocally() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to switch to main branch %w", err)
 		}
-		cmd3_2 := []string{"git", "merge", chkout, "--no-ff", "--no-edit"}
+		cmd3_2 := []string{"git", "merge", chkout, "--no-edit"}
 		w.printAndStreamCommand(cmd3_2)
 		ex3_2 := executor.NewLocalExecutor(cmd3_2)
 		status, err = w.runCommand(status, ex3_2)
@@ -321,7 +321,7 @@ func (w *Worker) runTestsOnNode(nd *node.Node) (bool, error) {
 			if err != nil {
 				return false, fmt.Errorf("failed to switch to main branch %w", err)
 			}
-			cmd3_2 := []string{"git", "merge", chkout, "---no-ff", "--no-edit"}
+			cmd3_2 := []string{"git", "merge", chkout, "--no-edit"}
 			w.printAndStreamCommand(cmd3_2)
 			ex3_2, err := executor.NewNodeSSHExecutor(nd, repoDir, cmd3_2)
 			if err != nil {
