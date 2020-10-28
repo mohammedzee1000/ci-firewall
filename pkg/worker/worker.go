@@ -47,7 +47,7 @@ func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPasswor
 		envFile:         "env.sh",
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
-		scriptIdentity:  strings.ToLower(fmt.Sprintf("%s%s", cimsg.Kind, cimsg.Target)),
+		scriptIdentity:  strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target)),
 	}
 	if !standalone {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)

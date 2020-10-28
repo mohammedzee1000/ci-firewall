@@ -46,7 +46,7 @@ func (le *LocalExecutor) ExitCode() int {
 
 func (le *LocalExecutor) SetEnvs(envVars map[string]string, identity string) error {
 	le.cmd.Env = os.Environ()
-	envVars["IDENTITY"] = identity
+	envVars["SCRIPT_IDENTITY"] = identity
 	envVars[node.NodeBaseOS] = "linux"
 	envVars[node.NodeArch] = "amd64"
 	for k, v := range envVars {

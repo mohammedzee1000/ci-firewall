@@ -127,7 +127,7 @@ func (ne *NodeSSHExecutor) Close() error {
 func (ne *NodeSSHExecutor) SetEnvs(envVars map[string]string, identity string) error {
 	envVars[node.NodeBaseOS] = ne.nd.BaseOS
 	envVars[node.NodeArch] = ne.nd.Arch
-	envVars["IDENTITY"] = identity
+	envVars["SCRIPT_IDENTITY"] = identity
 	for k, v := range envVars {
 		ne.envString = fmt.Sprintf("%sexport %s=\"%s\"; ", ne.envString, k, v)
 	}
