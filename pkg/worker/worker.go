@@ -30,6 +30,7 @@ type Worker struct {
 	envFile         string
 	repoDir         string
 	sshNodes        *node.NodeList
+	scriptIdentity  string
 	psb             *printstreambuffer.PrintStreamBuffer
 }
 
@@ -46,6 +47,7 @@ func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPasswor
 		envFile:         "env.sh",
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
+		scriptIdentity:  strings.ToLower(fmt.Sprintf("%s%s", cimsg.Kind, cimsg.Target)),
 	}
 	if !standalone {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -117,7 +119,7 @@ func (w *Worker) printAndStreamCommandString(cmdArgs string) error {
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor) (bool, error) {
 	defer ex.Close()
 	if oldsuccess {
-		ex.SetEnvs(util.EnvMapCopy(w.envVars))
+		ex.SetEnvs(util.EnvMapCopy(w.envVars), w.scriptIdentity)
 		done := make(chan error)
 		rdr, err := ex.BufferedReader()
 		if err != nil {

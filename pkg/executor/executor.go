@@ -10,5 +10,5 @@ type Executor interface {
 	Wait() error
 	ExitCode() int
 	Close() error
-	SetEnvs(map[string]string) error
+	SetEnvs(map[string]string, string) error
 }

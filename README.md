@@ -62,7 +62,7 @@ rm -rf ./*
 
 **WARNING**: It is absolutely nessasary to check if your jenkins runs tasks with a psedu terminal, and if not,  run the worker inside a `script` as `script --return -c "./ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null` so that it gets a pseudo terminal. Without a pseudoterminal, it can cause some of the operations to fail !!
 
-**NOTE**: When the worker is run, it will ensure that 2 environment variables `BASE_OS=linux|windows|mac` and ARCH=`amd64|aarch64|etc` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
+**NOTE**: When the worker is run, it will ensure that 3 environment variables `BASE_OS=linux|windows|mac`, ARCH=`amd64|aarch64|etc` and IDENTITY=`lower(kindtarget)` are available to your setup and run scripts, alongwith any other envs you pass to it. *For now, we are assuming the jenkins slave is always linux and amd64.* If sshnode is provided then it can vary based on what is defined there.
 
 ## Using the cli
 
