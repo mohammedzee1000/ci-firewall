@@ -139,6 +139,9 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 					if err != io.EOF {
 						done <- fmt.Errorf("error while reading from buffer %w", err)
 					}
+					if len(data) > 0 {
+						w.printAndStreamLog(data)
+					}
 					break
 				}
 				w.printAndStreamLog(data)
