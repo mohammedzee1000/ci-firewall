@@ -182,7 +182,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to create workdir %w", err)
 	}
-	status, err = w.runCommand(status, ex, workDir, []string{"git", "clone", w.cimsg.RepoURL, repoDir})
+	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
 	if err != nil {
 		return false, fmt.Errorf("failed to clone repo %w", err)
 	}
