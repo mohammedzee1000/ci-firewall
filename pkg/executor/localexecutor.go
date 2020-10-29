@@ -11,16 +11,47 @@ import (
 )
 
 type LocalExecutor struct {
-	cmd *exec.Cmd
+	cmd     *exec.Cmd
+	workDir string
+	currDir string
 }
 
-func NewLocalExecutor(cmdArgs []string) *LocalExecutor {
-	return &LocalExecutor{
-		cmd: exec.Command(cmdArgs[0], cmdArgs[1:]...),
+func NewLocalExecutor() *LocalExecutor {
+	return &LocalExecutor{}
+}
+
+func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string) (*bufio.Reader, error) {
+	var err error
+	le.workDir = workdir
+	//create command
+	if len(cmd) > 0 {
+		if len(cmd) == 1 {
+			le.cmd = exec.Command(cmd[0])
+		} else {
+			le.cmd = exec.Command(cmd[0], cmd[1:]...)
+		}
+	} else {
+		return nil, fmt.Errorf("command array should atleast have 1 value")
 	}
-}
-
-func (le *LocalExecutor) BufferedReader() (*bufio.Reader, error) {
+	//setup env
+	le.cmd.Env = os.Environ()
+	envVars[node.NodeBaseOS] = "linux"
+	envVars[node.NodeArch] = "amd64"
+	for k, v := range envVars {
+		le.cmd.Env = append(le.cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+	//chdir to workdir
+	if le.workDir != "" {
+		le.currDir, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get wd %w", err)
+		}
+		err = os.Chdir(le.workDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to change to workdir %w", err)
+		}
+	}
+	//setup the piping
 	stdoutpipe, err := le.cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to pipe stdout %w", err)
@@ -44,17 +75,9 @@ func (le *LocalExecutor) ExitCode() int {
 	return le.cmd.ProcessState.ExitCode()
 }
 
-func (le *LocalExecutor) SetEnvs(envVars map[string]string, identity string) error {
-	le.cmd.Env = os.Environ()
-	envVars["SCRIPT_IDENTITY"] = identity
-	envVars[node.NodeBaseOS] = "linux"
-	envVars[node.NodeArch] = "amd64"
-	for k, v := range envVars {
-		le.cmd.Env = append(le.cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-	return nil
-}
-
 func (le *LocalExecutor) Close() error {
+	if le.currDir != "" {
+		return os.Chdir(le.currDir)
+	}
 	return nil
 }

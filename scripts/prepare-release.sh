@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export VERSION="v0.0.4"
 sh scripts/build.sh
 rm -rf dist/release
 mkdir dist/release

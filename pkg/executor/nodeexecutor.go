@@ -11,16 +11,16 @@ import (
 )
 
 type NodeSSHExecutor struct {
-	nd        *node.Node
-	workdir   string
-	session   *ssh.Session
-	cmdArgs   []string
-	client    *ssh.Client
-	envString string
-	exitCode  int
+	nd            *node.Node
+	workdir       string
+	session       *ssh.Session
+	commandString string
+	client        *ssh.Client
+	cfg           *ssh.ClientConfig
+	exitCode      int
 }
 
-func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeSSHExecutor, error) {
+func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
 	var cfg *ssh.ClientConfig
 	if nd.SSHKey != "" {
 		signer, err := ssh.ParsePrivateKey([]byte(nd.SSHKey))
@@ -45,32 +45,55 @@ func NewNodeSSHExecutor(nd *node.Node, workdir string, cmdArgs []string) (*NodeS
 	} else {
 		return nil, fmt.Errorf("node should either have sshkey or password")
 	}
-	var addr string
-	if nd.Port == "" {
-		addr = fmt.Sprintf("%s:22", nd.Address)
-	} else {
-		addr = fmt.Sprintf("%s:%s", nd.Address, nd.Port)
-	}
-	client, err := ssh.Dial("tcp", addr, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to connect to ssh host %w", err)
-	}
-	session, err := client.NewSession()
-	//session.RequestPty("", 100, 100)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create session %w", err)
-	}
 	return &NodeSSHExecutor{
 		nd:       nd,
-		workdir:  workdir,
-		cmdArgs:  cmdArgs,
 		exitCode: 0,
-		client:   client,
-		session:  session,
+		cfg:      cfg,
+		session:  nil,
+		client:   nil,
 	}, nil
 }
 
-func (ne *NodeSSHExecutor) BufferedReader() (*bufio.Reader, error) {
+func (ne *NodeSSHExecutor) initClient() error {
+	var addr string
+	var err error
+	if ne.nd.Port == "" {
+		addr = fmt.Sprintf("%s:22", ne.nd.Address)
+	} else {
+		addr = fmt.Sprintf("%s:%s", ne.nd.Address, ne.nd.Port)
+	}
+	ne.client, err = ssh.Dial("tcp", addr, ne.cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize ssh client %w", err)
+	}
+	return nil
+}
+
+func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string) (*bufio.Reader, error) {
+	var err error
+	//setup env
+	var envString string
+	envVars[node.NodeBaseOS] = ne.nd.BaseOS
+	envVars[node.NodeArch] = ne.nd.Arch
+	for k, v := range envVars {
+		envString = fmt.Sprintf("%sexport %s=\"%s\"; ", envString, k, v)
+	}
+	ne.commandString = strings.Join(cmd, " ")
+	if workdir != "" {
+		ne.commandString = fmt.Sprintf("cd %s && %s", workdir, ne.commandString)
+	}
+	//appendenvstring
+	ne.commandString = fmt.Sprintf("%s%s", envString, ne.commandString)
+	//setupclient
+	err = ne.initClient()
+	if err != nil {
+		return nil, err
+	}
+	//setup session
+	ne.session, err = ne.client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create session %w", err)
+	}
 	stdoutpipe, err := ne.session.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to pipe stdout %w", err)
@@ -83,13 +106,10 @@ func (ne *NodeSSHExecutor) BufferedReader() (*bufio.Reader, error) {
 }
 
 func (ne *NodeSSHExecutor) Start() error {
-	cmdstr := strings.Join(ne.cmdArgs, " ")
-	if ne.workdir != "" {
-		cmdstr = fmt.Sprintf("cd %s && %s", ne.workdir, cmdstr)
+	if ne.client == nil || ne.session == nil {
+		return fmt.Errorf("did you run InitCommand first")
 	}
-	//appendenvstring
-	cmdstr = fmt.Sprintf("%s%s", ne.envString, cmdstr)
-	err := ne.session.Start(cmdstr)
+	err := ne.session.Start(ne.commandString)
 	if err != nil {
 		ne.exitCode = 1
 	}
@@ -122,29 +142,4 @@ func (ne *NodeSSHExecutor) Close() error {
 		return fmt.Errorf("failed to close ssh client %w", err)
 	}
 	return nil
-}
-
-func (ne *NodeSSHExecutor) SetEnvs(envVars map[string]string, identity string) error {
-	envVars[node.NodeBaseOS] = ne.nd.BaseOS
-	envVars[node.NodeArch] = ne.nd.Arch
-	envVars["SCRIPT_IDENTITY"] = identity
-	for k, v := range envVars {
-		ne.envString = fmt.Sprintf("%sexport %s=\"%s\"; ", ne.envString, k, v)
-	}
-	return nil
-}
-
-func (ne *NodeSSHExecutor) Session() *ssh.Session {
-	return ne.session
-}
-
-func (ne *NodeSSHExecutor) CombinedOutput() ([]byte, error) {
-	cmdstr := strings.Join(ne.cmdArgs, " ")
-	if ne.workdir != "" {
-		cmdstr = fmt.Sprintf("cd %s && %s", ne.workdir, cmdstr)
-	}
-
-	cmdstr = fmt.Sprintf("%s%s", ne.envString, cmdstr)
-	fmt.Println("running ", cmdstr)
-	return ne.session.CombinedOutput(cmdstr)
 }
