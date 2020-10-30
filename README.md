@@ -15,6 +15,11 @@ Used to run CI behind firewalls and collect result stream it to a public place
 3. A jenkins (behind your firewall) with jms plugin [plugin](https://plugins.jenkins.io/jms-messaging/). The plugin should be configured to use `RabbitMQ Provider` and to listen on the send queue, using the exchange and topic, which should already exist on the server(pre-created see 1).
 4. A Jenkins job/project which downloads the worker, and runs it with the appropriate parameters (see below). The job should be configured with a set of parameters.
 
+### Installing rabbitmq
+
+- Installing [rabbitmq](https://www.rabbitmq.com/download.html)
+- Installing [JMS Plugin](https://www.rabbitmq.com/jms-client.html)
+
 ### Requestor Configuration
 
 The requestor MUST have following information in it, so that it can be passed as parameters to requestor cli (explained below)
