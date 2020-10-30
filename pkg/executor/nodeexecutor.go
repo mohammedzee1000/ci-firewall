@@ -57,10 +57,10 @@ func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
 func (ne *NodeSSHExecutor) initClient() error {
 	var addr string
 	var err error
-	if ne.nd.Port == "" {
+	if ne.nd.Port < 1 {
 		addr = fmt.Sprintf("%s:22", ne.nd.Address)
 	} else {
-		addr = fmt.Sprintf("%s:%s", ne.nd.Address, ne.nd.Port)
+		addr = fmt.Sprintf("%s:%d", ne.nd.Address, ne.nd.Port)
 	}
 	ne.client, err = ssh.Dial("tcp", addr, ne.cfg)
 	if err != nil {
