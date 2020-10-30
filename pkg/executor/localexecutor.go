@@ -67,12 +67,12 @@ func (le *LocalExecutor) Start() error {
 	return le.cmd.Start()
 }
 
-func (le *LocalExecutor) Wait() error {
-	return le.cmd.Wait()
-}
-
-func (le *LocalExecutor) ExitCode() int {
-	return le.cmd.ProcessState.ExitCode()
+func (le *LocalExecutor) Wait() (bool, error) {
+	err := le.cmd.Wait()
+	if err != nil {
+		return false, err
+	}
+	return le.cmd.ProcessState.Success(), err
 }
 
 func (le *LocalExecutor) Close() error {

@@ -7,7 +7,6 @@ import (
 type Executor interface {
 	InitCommand(string, []string, map[string]string) (*bufio.Reader, error)
 	Start() error
-	Wait() error
-	ExitCode() int
+	Wait() (bool, error)
 	Close() error
 }

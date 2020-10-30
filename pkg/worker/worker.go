@@ -41,7 +41,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -55,7 +55,7 @@ func NewWorker(standalone bool, amqpURI, jenkinsURL, jenkinsUser, jenkinsPasswor
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
 	}
-	if !standalone {
+	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
 	}
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
@@ -156,15 +156,15 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		if err != nil {
 			return false, err
 		}
-		ex.Wait()
+		success, err := ex.Wait()
+		if err != nil {
+			return false, fmt.Errorf("failed to wait for command %w", err)
+		}
 		err = w.psb.Flush()
 		if err != nil {
 			return false, err
 		}
-		if ex.ExitCode() != 0 {
-			return false, nil
-		}
-		return true, nil
+		return success, nil
 	}
 	w.printAndStreamInfo("previous command failed or skipped, skipping")
 	return false, nil
@@ -172,11 +172,10 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 
 //setupTests sets up testing using Executor ex, in workDir the workdirectory and repoDir the repo clone location. Returns success and error.
 func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool, error) {
-	var status bool
 	var err error
 	var chkout string
 	//Remove any existing workdir of same name, ussually due to termination of jobs
-	status, err = w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
+	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
 	if err != nil {
 		return false, fmt.Errorf("failed to delete workdir %w", err)
 	}
@@ -203,26 +202,31 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		if err != nil {
 			return false, fmt.Errorf("failed to fast forward merge %w", err)
 		}
-	} else {
-		if w.cimsg.Target == messages.RequestTypeBranch {
-			chkout = w.cimsg.Target
-		} else if w.cimsg.Kind == messages.RequestTypeTag {
-			chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
-		}
+	} else if w.cimsg.Target == messages.RequestTypeBranch {
+		chkout = w.cimsg.Target
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
+	} else if w.cimsg.Kind == messages.RequestTypeTag {
+		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
+		//4 checkout
+		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
+		if err != nil {
+			return false, fmt.Errorf("failed to checkout %w", err)
+		}
+	} else {
+		return false, fmt.Errorf("failed to clone repo")
 	}
 	return status, nil
 }
 
 //runTests runs tests using executor ex and repoDir the repo clone location. If oldstatus is false, it is skipped
 func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) (bool, error) {
-	var status bool
 	var err error
 	if oldstatus {
+		status := true
 		//1 run the setup script, if it is provided
 		if w.cimsg.SetupScript != "" {
 			status, err = w.runCommand(status, ex, repoDir, []string{"sh", w.cimsg.SetupScript})
@@ -243,32 +247,30 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
 		}
-	} else {
-		w.printAndStreamLog("setup failed, skipping")
+		return status, nil
 	}
-	return status, nil
+	w.printAndStreamLog("setup failed, skipping")
+	return false, nil
 }
 
 //tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
 //if oldsuccess is false, then this is skipped
 func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir string) (bool, error) {
-	var status bool
-	var err error
 	if oldsuccess {
-		status, err = w.runCommand(oldsuccess, ex, "", []string{"rm", "-rf", workDir})
+		status, err := w.runCommand(oldsuccess, ex, "", []string{"rm", "-rf", workDir})
 		if err != nil {
 			return false, fmt.Errorf("failed to remove workdir %w", err)
 		}
+		return status, nil
 	} else {
 		w.printAndStreamLog("run failed, skipping")
+		return false, nil
 	}
-	return status, nil
 }
 
 //test runs the tests on a node. If node is nill LocalExecutor is used, otherwise SSHExecutor is used.
 //returns success and error
 func (w *Worker) test(nd *node.Node) (bool, error) {
-	var status bool
 	var err error
 	var ex executor.Executor
 	workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
@@ -283,7 +285,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 		ex = executor.NewLocalExecutor()
 		w.printAndStreamInfo("running tests locally")
 	}
-	status, err = w.setupTests(ex, workDir, repoDir)
+	status, err := w.setupTests(ex, workDir, repoDir)
 	if err != nil {
 		return false, fmt.Errorf("setup failed %w", err)
 	}

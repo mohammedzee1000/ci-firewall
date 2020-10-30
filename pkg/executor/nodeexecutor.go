@@ -89,6 +89,8 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 	if err != nil {
 		return nil, err
 	}
+	//reset exit code
+	ne.exitCode = 0
 	//setup session
 	ne.session, err = ne.client.NewSession()
 	if err != nil {
@@ -111,25 +113,21 @@ func (ne *NodeSSHExecutor) Start() error {
 	}
 	err := ne.session.Start(ne.commandString)
 	if err != nil {
-		ne.exitCode = 1
+		return fmt.Errorf("failed to start command %w", err)
 	}
-	return err
+	return nil
 }
 
-func (ne *NodeSSHExecutor) Wait() error {
+func (ne *NodeSSHExecutor) Wait() (bool, error) {
 	err := ne.session.Wait()
 	if err != nil {
 		if err, ok := err.(*ssh.ExitError); ok {
-			ne.exitCode = err.ExitStatus()
+			return false, nil
 		} else {
-			return fmt.Errorf("failed to wait ssh command: %w", err)
+			return false, fmt.Errorf("failed to wait ssh command: %w", err)
 		}
 	}
-	return err
-}
-
-func (ne *NodeSSHExecutor) ExitCode() int {
-	return ne.exitCode
+	return true, nil
 }
 
 func (ne *NodeSSHExecutor) Close() error {
