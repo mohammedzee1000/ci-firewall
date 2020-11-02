@@ -20,6 +20,10 @@ func NewLocalExecutor() *LocalExecutor {
 	return &LocalExecutor{}
 }
 
+func (le *LocalExecutor) GetName() string {
+	return "local"
+}
+
 func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string) (*bufio.Reader, error) {
 	var err error
 	le.workDir = workdir

@@ -68,6 +68,7 @@ func (r *Requestor) sendBuildRequest() error {
 
 func (r *Requestor) consumeMessages() error {
 	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
+		success := true
 		for d := range deliveries {
 			m := &messages.Message{}
 			err1 := json.Unmarshal(d.Body, m)
@@ -98,11 +99,15 @@ func (r *Requestor) consumeMessages() error {
 					if err1 != nil {
 						done <- fmt.Errorf("failed to unmarshal as status message %w", err1)
 					}
-					if !sm.Success {
-						done <- fmt.Errorf("Failed the test, see logs above ^")
-						return
+					if success {
+						success = sm.Success
 					}
-					done <- nil
+				} else if m.IsFinalize() {
+					if success {
+						done <- nil
+					} else {
+						done <- fmt.Errorf("Failed the test, see logs above ^")
+					}
 					return
 				}
 			}
@@ -140,7 +145,7 @@ func (r *Requestor) ShutDown() error {
 	if err != nil {
 		return fmt.Errorf("failed to shutdown send q %w", err)
 	}
-	err = r.rcvq.Shutdown()
+	err = r.rcvq.Shutdown(true)
 	if err != nil {
 		return fmt.Errorf("failed to shutdown rcv q %w", err)
 	}

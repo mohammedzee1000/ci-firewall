@@ -84,9 +84,11 @@ func (aq *AMQPQueue) Consume(handleDeliveries func(deliveries <-chan amqp.Delive
 	return nil
 }
 
-func (aq *AMQPQueue) Shutdown() error {
-	if _, err := aq.achan.QueuePurge(aq.queueName, false); err != nil {
-		log.Printf("failed to purge queue %s nvm failing gracefully: %w\n", aq.queueName, err)
+func (aq *AMQPQueue) Shutdown(purge bool) error {
+	if purge {
+		if _, err := aq.achan.QueuePurge(aq.queueName, false); err != nil {
+			log.Printf("failed to purge queue %s nvm failing gracefully: %s\n", aq.queueName, err)
+		}
 	}
 	if err := aq.achan.Close(); err != nil {
 		return fmt.Errorf("failed to close channel %w", err)

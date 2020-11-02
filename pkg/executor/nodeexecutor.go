@@ -54,6 +54,10 @@ func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
 	}, nil
 }
 
+func (ne *NodeSSHExecutor) GetName() string {
+	return fmt.Sprintf("ssh:%s", ne.nd.Name)
+}
+
 func (ne *NodeSSHExecutor) initClient() error {
 	var addr string
 	var err error

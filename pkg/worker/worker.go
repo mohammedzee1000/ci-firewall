@@ -33,6 +33,7 @@ type Worker struct {
 	repoDir         string
 	sshNodes        *node.NodeList
 	psb             *printstreambuffer.PrintStreamBuffer
+	finalize        bool
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -41,7 +42,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, finalize bool) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -54,6 +55,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		envFile:         "env.sh",
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
+		finalize:        finalize,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -104,8 +106,8 @@ func (w *Worker) sendBuildInfo() error {
 }
 
 //printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
-func (w *Worker) printAndStreamLog(msg string) error {
-	err := w.psb.Print(msg)
+func (w *Worker) printAndStreamLog(name, msg string) error {
+	err := w.psb.Print(fmt.Sprintf("[%s] %s", name, msg))
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -118,13 +120,13 @@ func (w *Worker) printAndStreamInfo(info string) error {
 }
 
 //printAndStreamCommand print and streams a command. Returns error in case of fail
-func (w *Worker) printAndStreamCommand(cmdArgs []string) error {
-	return w.printAndStreamInfo(fmt.Sprintf("Executing command %v", cmdArgs))
+func (w *Worker) printAndStreamCommand(name string, cmdArgs []string) error {
+	return w.printAndStreamInfo(fmt.Sprintf("[%s] Executing command %v", name, cmdArgs))
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
-	w.printAndStreamCommand(cmd)
+	w.printAndStreamCommand(ex.GetName(), cmd)
 	if oldsuccess {
 		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars))
 		if err != nil {
@@ -140,11 +142,11 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 						done <- fmt.Errorf("error while reading from buffer %w", err)
 					}
 					if len(data) > 0 {
-						w.printAndStreamLog(data)
+						w.printAndStreamLog(ex.GetName(), data)
 					}
 					break
 				}
-				w.printAndStreamLog(data)
+				w.printAndStreamLog(ex.GetName(), data)
 			}
 			done <- nil
 		}(done)
@@ -249,7 +251,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		}
 		return status, nil
 	}
-	w.printAndStreamLog("setup failed, skipping")
+	w.printAndStreamLog(ex.GetName(), "setup failed, skipping")
 	return false, nil
 }
 
@@ -263,7 +265,7 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 		}
 		return status, nil
 	} else {
-		w.printAndStreamLog("run failed, skipping")
+		w.printAndStreamLog(ex.GetName(), "run failed, skipping")
 		return false, nil
 	}
 }
@@ -332,6 +334,13 @@ func (w *Worker) sendStatusMessage(success bool) error {
 	return nil
 }
 
+func (w *Worker) sendFinalizeMessage() error {
+	if w.rcvq != nil && w.finalize {
+		return w.rcvq.Publish(false, messages.NewFinalizeMessage(w.jenkinsBuild))
+	}
+	return nil
+}
+
 //Run runs the worker and returns error if any.
 func (w *Worker) Run() error {
 	var success bool
@@ -352,6 +361,9 @@ func (w *Worker) Run() error {
 	if err := w.sendStatusMessage(success); err != nil {
 		return fmt.Errorf("failed to send status message %w", err)
 	}
+	if err := w.sendFinalizeMessage(); err != nil {
+		return fmt.Errorf("failed to send finalize message %w", err)
+	}
 	err = w.psb.Flush()
 	if err != nil {
 		return err
@@ -362,7 +374,7 @@ func (w *Worker) Run() error {
 //Shutdown shuts down the worker and returns error if any
 func (w *Worker) Shutdown() error {
 	if w.rcvq != nil {
-		return w.rcvq.Shutdown()
+		return w.rcvq.Shutdown(false)
 	}
 	return nil
 }
