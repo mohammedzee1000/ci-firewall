@@ -134,7 +134,7 @@ The format of th file is as below
             "name": "common name of node. example -Fedora 31-",
             "user": "username to ssh into the node with",
             "address": "The address of the node, like an ip or domain name without port",
-            "port": 22, // numeric ssh port. Defaults to 22, if not provided
+            "port": 22,
             "baseos": "linux|windows|mac",
             "arch": "arch of the system eg amd64",
             "password": "not recommended but you can provide password of target node",
@@ -143,6 +143,8 @@ The format of th file is as below
     ]
 }
 ```
+
+*NOTE*: port is optional and defaults to 22 if not provided
 
 **WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
 
