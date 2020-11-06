@@ -48,6 +48,8 @@ The following information will be needed in the worker. They will need to be pas
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
 - *SSH Node file(optional)*: If provided, repersents path to json file containing infor needed to ssh into nodes and run tests. Can be passed to cli (see below for more information)
 - *CI Message Variable* The variable containing, as configured in your CI Event Subscriber (defaults to `CI)MESSAGE` env)
+- *Environment Variables*: List of envs to inject to the scripts.
+- *Tags* : List of tags to attach to all logs
 
 It is also a good idea to ensure the jenkins job cleans up after itself by enabling `Delete workspace before build starts` and maybe even `Execute concurrent builds if necessary` depending on if your are ok with each build running only after previous build is finished.
 
@@ -120,6 +122,8 @@ Main Command:
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
 - *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodesfile file`)
 - *Stand Alone(optional)*: defaults to false. In this more the worker assumes there is no request, hence no queues communication. Everything else remains same. (param `--standalone=true`). This also means you will need to provide the `CI_MESSAGE` yourself. See below for example.
+- *Environment Variables(optional)*: The list environment variables to make available to the scripts apart from `SCRIPT_IDENTITY, BASE_OS and ARCH` (param `--env FOO=BAR`). Every use appends to list.
+- *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 
 ## SSHNodeFile
 
@@ -129,18 +133,17 @@ The format of th file is as below
 
 ```json
 {
-    "nodes": [
-        {
-            "name": "common name of node. example -Fedora 31-",
-            "user": "username to ssh into the node with",
-            "address": "The address of the node, like an ip or domain name without port",
-            "port": 22,
-            "baseos": "linux|windows|mac",
-            "arch": "arch of the system eg amd64",
-            "password": "not recommended but you can provide password of target node",
-            "privatekey": "Optional again but either this or password MUST be given."
-        }
-    ]
+	"nodes": [{
+		"name": "common name of node. example -Fedora 31-",
+		"user": "username to ssh into the node with",
+		"address": "The address of the node, like an ip or domain name without port",
+		"port": 22,
+		"baseos": "linux|windows|mac",
+		"arch": "arch of the system eg amd64",
+		"password": "not recommended but you can provide password of target node",
+		"privatekey": "Optional again but either this or password MUST be given.",
+		"tags": ["optional sample tags to append to logs from ssh node. Node `name is already attached as `ssh:name`"]
+	}]
 }
 ```
 

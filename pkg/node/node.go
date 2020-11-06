@@ -12,14 +12,15 @@ const (
 )
 
 type Node struct {
-	Name        string `json:"name"`
-	User        string `json:"user"`
-	Address     string `json:"address"`
-	Port        int    `json:"port,omitempty"`
-	BaseOS      string `json:"baseos"`
-	Arch        string `json:"arch"`
-	SSHPassword string `json:"password"`
-	SSHKey      string `json:"privatekey"`
+	Name        string   `json:"name"`
+	User        string   `json:"user"`
+	Address     string   `json:"address"`
+	Port        int      `json:"port,omitempty"`
+	BaseOS      string   `json:"baseos"`
+	Arch        string   `json:"arch"`
+	SSHPassword string   `json:"password"`
+	SSHKey      string   `json:"privatekey"`
+	Tags        []string `json:"tags"`
 }
 
 type NodeList struct {

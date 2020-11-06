@@ -6,8 +6,9 @@ import (
 
 type Executor interface {
 	GetName() string
-	InitCommand(string, []string, map[string]string) (*bufio.Reader, error)
+	InitCommand(string, []string, map[string]string, []string) (*bufio.Reader, error)
 	Start() error
 	Wait() (bool, error)
 	Close() error
+	GetTags() []string
 }

@@ -24,7 +24,7 @@ func (le *LocalExecutor) GetName() string {
 	return "local"
 }
 
-func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string) (*bufio.Reader, error) {
+func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string, tags []string) (*bufio.Reader, error) {
 	var err error
 	le.workDir = workdir
 	//create command
@@ -65,6 +65,10 @@ func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[s
 		return nil, fmt.Errorf("failed to pipe stderr %w", err)
 	}
 	return bufio.NewReader(io.MultiReader(stdoutpipe, stderrpipe)), nil
+}
+
+func (le *LocalExecutor) GetTags() []string {
+	return []string{"local"}
 }
 
 func (le *LocalExecutor) Start() error {

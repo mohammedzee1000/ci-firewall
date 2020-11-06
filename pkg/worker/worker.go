@@ -29,11 +29,11 @@ type Worker struct {
 	cimsgenv        string
 	cimsg           *messages.RemoteBuildRequestMessage
 	envVars         map[string]string
-	envFile         string
 	repoDir         string
 	sshNodes        *node.NodeList
 	psb             *printstreambuffer.PrintStreamBuffer
 	finalize        bool
+	tags            []string
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -42,7 +42,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, finalize bool) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, finalize bool, tags []string) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -52,10 +52,10 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		jenkinsUser:     jenkinsUser,
 		jenkinsPassword: jenkinsPassword,
 		envVars:         envVars,
-		envFile:         "env.sh",
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
 		finalize:        finalize,
+		tags:            tags,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -106,8 +106,8 @@ func (w *Worker) sendBuildInfo() error {
 }
 
 //printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
-func (w *Worker) printAndStreamLog(name, msg string) error {
-	err := w.psb.Print(fmt.Sprintf("[%s] %s", name, msg))
+func (w *Worker) printAndStreamLog(tags []string, msg string) error {
+	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg))
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -115,20 +115,22 @@ func (w *Worker) printAndStreamLog(name, msg string) error {
 }
 
 //printAndStreamInfo prints and streams an info msg
-func (w *Worker) printAndStreamInfo(info string) error {
-	return w.psb.Println(info)
+func (w *Worker) printAndStreamInfo(tags []string, info string) error {
+	toprint := fmt.Sprintf("%v !!!%s!!!", tags, info)
+	return w.psb.Println(toprint)
 }
 
 //printAndStreamCommand print and streams a command. Returns error in case of fail
-func (w *Worker) printAndStreamCommand(name string, cmdArgs []string) error {
-	return w.printAndStreamInfo(fmt.Sprintf("[%s] Executing command %v", name, cmdArgs))
+func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
+	return w.psb.Println(fmt.Sprintf("%v Executing command %v", tags, cmdArgs))
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
-	w.printAndStreamCommand(ex.GetName(), cmd)
+	ctags := ex.GetTags()
+	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
-		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars))
+		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
 		if err != nil {
 			return false, fmt.Errorf("failed to initialize executor %w", err)
 		}
@@ -142,11 +144,11 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 						done <- fmt.Errorf("error while reading from buffer %w", err)
 					}
 					if len(data) > 0 {
-						w.printAndStreamLog(ex.GetName(), data)
+						w.printAndStreamLog(ctags, data)
 					}
 					break
 				}
-				w.printAndStreamLog(ex.GetName(), data)
+				w.printAndStreamLog(ctags, data)
 			}
 			done <- nil
 		}(done)
@@ -168,7 +170,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		}
 		return success, nil
 	}
-	w.printAndStreamInfo("previous command failed or skipped, skipping")
+	w.printAndStreamInfo(ex.GetTags(), "previous command failed or skipped, skipping")
 	return false, nil
 }
 
@@ -251,7 +253,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		}
 		return status, nil
 	}
-	w.printAndStreamLog(ex.GetName(), "setup failed, skipping")
+	w.printAndStreamLog(ex.GetTags(), "setup failed, skipping")
 	return false, nil
 }
 
@@ -265,7 +267,7 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 		}
 		return status, nil
 	} else {
-		w.printAndStreamLog(ex.GetName(), "run failed, skipping")
+		w.printAndStreamLog(ex.GetTags(), "run failed, skipping")
 		return false, nil
 	}
 }
@@ -282,10 +284,10 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to setup ssh executor %w", err)
 		}
-		w.printAndStreamInfo(fmt.Sprintf("!!!running tests on node %s via ssh!!!", nd.Name))
+		w.printAndStreamInfo(ex.GetTags(), fmt.Sprintf("running tests on node %s via ssh", nd.Name))
 	} else {
 		ex = executor.NewLocalExecutor()
-		w.printAndStreamInfo("running tests locally")
+		w.printAndStreamInfo(ex.GetTags(), "running tests locally")
 	}
 	status, err := w.setupTests(ex, workDir, repoDir)
 	if err != nil {

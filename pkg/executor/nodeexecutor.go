@@ -73,7 +73,7 @@ func (ne *NodeSSHExecutor) initClient() error {
 	return nil
 }
 
-func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string) (*bufio.Reader, error) {
+func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string, tags []string) (*bufio.Reader, error) {
 	var err error
 	//setup env
 	var envString string
@@ -109,6 +109,10 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 		return nil, fmt.Errorf("failed to pipe stderr %w", err)
 	}
 	return bufio.NewReader(io.MultiReader(stdoutpipe, stderrpipe)), nil
+}
+
+func (ne *NodeSSHExecutor) GetTags() []string {
+	return append(ne.nd.Tags, fmt.Sprintf("ssh:%s", ne.nd.Name))
 }
 
 func (ne *NodeSSHExecutor) Start() error {
