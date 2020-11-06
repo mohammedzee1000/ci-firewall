@@ -84,6 +84,7 @@ func (r *Requestor) consumeMessages() error {
 					return
 				}
 				r.jenkinsBuild = bm.Build
+				fmt.Printf("Following jenkins build %d\n", r.jenkinsBuild)
 			} else if r.jenkinsBuild == m.Build {
 				if m.ISLog() {
 					lm := messages.NewLogsMessage(-1, "")

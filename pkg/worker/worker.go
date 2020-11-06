@@ -343,12 +343,17 @@ func (w *Worker) sendFinalizeMessage() error {
 	return nil
 }
 
+func (w *Worker) printBuildInfo() {
+	fmt.Printf("!!!Build for Kind: %s Target: %s!!!\n", w.cimsg.Kind, w.cimsg.Target)
+}
+
 //Run runs the worker and returns error if any.
 func (w *Worker) Run() error {
 	var success bool
 	if err := w.cleanupOldBuilds(); err != nil {
 		return err
 	}
+	w.printBuildInfo()
 	if err := w.initQueues(); err != nil {
 		return err
 	}
