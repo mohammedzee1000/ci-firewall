@@ -200,7 +200,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	}
 	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
 	if err != nil {
-		return false, fmt.Errorf("failed to clone repo %w", err)
+		return false, fmt.Errorf("git clone failed %w", err)
 	}
 	if w.cimsg.Kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
@@ -231,7 +231,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 	} else {
-		return false, fmt.Errorf("failed to clone repo")
+		return false, fmt.Errorf("invalid kind parameter %s. Must be one of %s, %s or %s", w.cimsg.Kind, messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
 	return status, nil
 }
