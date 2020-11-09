@@ -47,7 +47,7 @@ The following information will be needed in the worker. They will need to be pas
 - *Jenkins Robot User Name*: The name of the robot account to log into jenkins with. The user MUST be able to cancel builds for the given project. Looks for `JENKINS_ROBOT_USER` if set or can be passed as argument
 - *Jenkins Robot User Password*: The password of above user. Looks for `JENKINS_ROBOT_PASSWORD` env, or can be passed as argument to cli
 - *SSH Node file(optional)*: If provided, repersents path to json file containing infor needed to ssh into nodes and run tests. Can be passed to cli (see below for more information)
-- *CI Message Variable* The variable containing, as configured in your CI Event Subscriber (defaults to `CI)MESSAGE` env)
+- *CI Message Variable* The variable containing, as configured in your CI Event Subscriber (defaults to `CI_MESSAGE` env). Make sure to parameterize the jenkins build as well, with the same parameter
 - *Environment Variables*: List of envs to inject to the scripts.
 - *Tags* : List of tags to attach to all logs
 
