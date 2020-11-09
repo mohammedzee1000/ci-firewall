@@ -176,7 +176,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		}
 		err = w.psb.Flush()
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("failed to flush %w", err)
 		}
 		return success, nil
 	}

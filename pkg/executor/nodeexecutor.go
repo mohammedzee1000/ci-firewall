@@ -18,6 +18,7 @@ type NodeSSHExecutor struct {
 	client        *ssh.Client
 	cfg           *ssh.ClientConfig
 	exitCode      int
+	tags          []string
 }
 
 func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
@@ -51,6 +52,7 @@ func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
 		cfg:      cfg,
 		session:  nil,
 		client:   nil,
+		tags:     []string{fmt.Sprintf("ssh:%s", nd.Name)},
 	}, nil
 }
 
@@ -86,6 +88,8 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 	if workdir != "" {
 		ne.commandString = fmt.Sprintf("cd %s && %s", workdir, ne.commandString)
 	}
+	ne.tags = append([]string{fmt.Sprintf("ssh:%s", ne.nd.Name)}, tags...)
+	ne.tags = append(ne.tags, ne.nd.Tags...)
 	//appendenvstring
 	ne.commandString = fmt.Sprintf("%s%s", envString, ne.commandString)
 	//setupclient
@@ -112,7 +116,7 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 }
 
 func (ne *NodeSSHExecutor) GetTags() []string {
-	return append(ne.nd.Tags, fmt.Sprintf("ssh:%s", ne.nd.Name))
+	return ne.tags
 }
 
 func (ne *NodeSSHExecutor) Start() error {

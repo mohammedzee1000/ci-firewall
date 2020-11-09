@@ -14,6 +14,7 @@ type LocalExecutor struct {
 	cmd     *exec.Cmd
 	workDir string
 	currDir string
+	tags    []string
 }
 
 func NewLocalExecutor() *LocalExecutor {
@@ -37,6 +38,7 @@ func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[s
 	} else {
 		return nil, fmt.Errorf("command array should atleast have 1 value")
 	}
+	le.tags = append([]string{"local"}, le.tags...)
 	//setup env
 	le.cmd.Env = os.Environ()
 	envVars[node.NodeBaseOS] = "linux"
@@ -68,7 +70,7 @@ func (le *LocalExecutor) InitCommand(workdir string, cmd []string, envVars map[s
 }
 
 func (le *LocalExecutor) GetTags() []string {
-	return []string{"local"}
+	return le.tags
 }
 
 func (le *LocalExecutor) Start() error {
