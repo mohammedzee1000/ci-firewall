@@ -216,7 +216,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		if err != nil {
 			return false, fmt.Errorf("failed to fast forward merge %w", err)
 		}
-	} else if w.cimsg.Target == messages.RequestTypeBranch {
+	} else if w.cimsg.Kind == messages.RequestTypeBranch {
 		chkout = w.cimsg.Target
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
