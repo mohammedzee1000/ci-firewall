@@ -115,7 +115,7 @@ func (w *Worker) printAndStreamLog(tags []string, msg string) error {
 }
 
 func (w *Worker) handleCommandError(tags []string, err error) error {
-	err1 := w.psb.Println(fmt.Sprintf("%v Command execution failed due to error :%s: failing gracefully", tags, err))
+	err1 := w.psb.Println(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err))
 	if err1 != nil {
 		return fmt.Errorf("failed to stream command error message %w", err)
 	}
@@ -162,7 +162,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		}(done)
 		err = ex.Start()
 		if err != nil {
-			w.handleCommandError(ctags, err)
+			w.handleCommandError(ctags, fmt.Errorf("failed to start executing command %w", err))
 			return false, nil
 		}
 		err = <-done
@@ -171,7 +171,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		}
 		success, err := ex.Wait()
 		if err != nil {
-			w.handleCommandError(ctags, err)
+			w.handleCommandError(ctags, fmt.Errorf("failed to wait for command completion %w", err))
 			return false, nil
 		}
 		err = w.psb.Flush()
