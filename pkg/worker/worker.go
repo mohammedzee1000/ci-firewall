@@ -263,7 +263,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		}
 		return status, nil
 	}
-	w.printAndStreamLog(ex.GetTags(), "setup failed, skipping")
+	w.printAndStreamInfo(ex.GetTags(), "setup failed, skipping")
 	return false, nil
 }
 
@@ -276,10 +276,9 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 			return false, fmt.Errorf("failed to remove workdir %w", err)
 		}
 		return status, nil
-	} else {
-		w.printAndStreamLog(ex.GetTags(), "run failed, skipping")
-		return false, nil
 	}
+	w.printAndStreamInfo(ex.GetTags(), "run failed, skipping")
+	return false, nil
 }
 
 //test runs the tests on a node. If node is nill LocalExecutor is used, otherwise SSHExecutor is used.
