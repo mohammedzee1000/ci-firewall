@@ -358,34 +358,34 @@ func (w *Worker) printBuildInfo() {
 }
 
 //Run runs the worker and returns error if any.
-func (w *Worker) Run() error {
+func (w *Worker) Run() (bool, error) {
 	var success bool
 	if err := w.cleanupOldBuilds(); err != nil {
-		return err
+		return false, err
 	}
 	w.printBuildInfo()
 	if err := w.initQueues(); err != nil {
-		return err
+		return false, err
 	}
 	if err := w.sendBuildInfo(); err != nil {
-		return fmt.Errorf("failed to send build info %w", err)
+		return false, fmt.Errorf("failed to send build info %w", err)
 	}
 	success, err := w.run()
 	if err != nil {
-		return fmt.Errorf("failed to run tests %w", err)
+		return false, fmt.Errorf("failed to run tests %w", err)
 	}
 	fmt.Printf("Success : %t\n", success)
 	if err := w.sendStatusMessage(success); err != nil {
-		return fmt.Errorf("failed to send status message %w", err)
+		return false, fmt.Errorf("failed to send status message %w", err)
 	}
 	if err := w.sendFinalizeMessage(); err != nil {
-		return fmt.Errorf("failed to send finalize message %w", err)
+		return false, fmt.Errorf("failed to send finalize message %w", err)
 	}
 	err = w.psb.Flush()
 	if err != nil {
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
 //Shutdown shuts down the worker and returns error if any
