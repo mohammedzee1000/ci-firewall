@@ -384,7 +384,7 @@ func (w *Worker) Run() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	return success, nil
 }
 
 //Shutdown shuts down the worker and returns error if any

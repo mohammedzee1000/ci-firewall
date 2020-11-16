@@ -112,6 +112,7 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 	if err != nil {
 		return nil, fmt.Errorf("failed to pipe stderr %w", err)
 	}
+
 	return bufio.NewReader(io.MultiReader(stdoutpipe, stderrpipe)), nil
 }
 
