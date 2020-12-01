@@ -14,7 +14,6 @@
 # Build bins
 ci-firewall
 ci-firewall.tar.gz
-cmd/tester/*
 test-nodes.json
 dist
 
