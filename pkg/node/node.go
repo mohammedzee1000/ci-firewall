@@ -51,3 +51,15 @@ func NodesFromFile(filepath string) (*NodeList, error) {
 	}
 	return NodesFromJson(data)
 }
+
+func NodesFromFiles(files []string) (*NodeList, error) {
+	nl := newNodeList()
+	for _, f := range files {
+		cnl, err := NodesFromFile(f)
+		if err != nil {
+			return nil, err
+		}
+		nl.Nodes = append(nl.Nodes, cnl.Nodes...)
+	}
+	return nl, nil
+}

@@ -120,14 +120,14 @@ Main Command:
 - *Target*: The target repersent what pr/branch/tag needs to be checked out. (env `TARGET` or param `--target`)
 - *Setup Script(optional)*: Script that runs before the test script, to do any setup needed. (env `SETUP_SCRIPT` or param `--setupscript`)
 - *Run Script*: The test script to run. (env `RUN_SCRIPT` or param `--runscript`)
-- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodesfile file`)
+- *SSH Node file(optional)*: If set to true, must have a test node db (see multi OS testing below). Can be passed to cli. (Param `--sshnodesfile file1 --sshnodesfile file2`)
 - *Stand Alone(optional)*: defaults to false. In this more the worker assumes there is no request, hence no queues communication. Everything else remains same. (param `--standalone=true`). This also means you will need to provide the `CI_MESSAGE` yourself. See below for example.
 - *Environment Variables(optional)*: The list environment variables to make available to the scripts apart from `SCRIPT_IDENTITY, BASE_OS and ARCH` (param `--env FOO=BAR`). Every use appends to list.
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 
 ## SSHNodeFile
 
-It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`
+It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`. This is an array so you can pass paths of multiple node files as well simply by repeating `--sshnodefile`.
 
 The format of th file is as below
 

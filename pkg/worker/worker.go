@@ -107,7 +107,7 @@ func (w *Worker) sendBuildInfo() error {
 
 //printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
 func (w *Worker) printAndStreamLog(tags []string, msg string) error {
-	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg))
+	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false)
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -115,7 +115,7 @@ func (w *Worker) printAndStreamLog(tags []string, msg string) error {
 }
 
 func (w *Worker) handleCommandError(tags []string, err error) error {
-	err1 := w.psb.Println(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err))
+	err1 := w.psb.Print(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err), true)
 	if err1 != nil {
 		return fmt.Errorf("failed to stream command error message %w", err)
 	}
@@ -124,13 +124,13 @@ func (w *Worker) handleCommandError(tags []string, err error) error {
 
 //printAndStreamInfo prints and streams an info msg
 func (w *Worker) printAndStreamInfo(tags []string, info string) error {
-	toprint := fmt.Sprintf("%v !!!%s!!!", tags, info)
-	return w.psb.Println(toprint)
+	toprint := fmt.Sprintf("%v !!!%s!!!\n", tags, info)
+	return w.psb.Print(toprint, true)
 }
 
 //printAndStreamCommand print and streams a command. Returns error in case of fail
 func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
-	return w.psb.Println(fmt.Sprintf("%v Executing command %v", tags, cmdArgs))
+	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true)
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
@@ -174,7 +174,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			w.handleCommandError(ctags, fmt.Errorf("failed to wait for command completion %w", err))
 			return false, nil
 		}
-		err = w.psb.Flush()
+		err = w.psb.FlushToQueue()
 		if err != nil {
 			return false, fmt.Errorf("failed to flush %w", err)
 		}
@@ -380,7 +380,7 @@ func (w *Worker) Run() (bool, error) {
 	if err := w.sendFinalizeMessage(); err != nil {
 		return false, fmt.Errorf("failed to send finalize message %w", err)
 	}
-	err = w.psb.Flush()
+	err = w.psb.FlushToQueue()
 	if err != nil {
 		return false, err
 	}

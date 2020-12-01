@@ -24,9 +24,8 @@ func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int) *PrintSt
 	}
 }
 
-func (psb *PrintStreamBuffer) Flush() error {
+func (psb *PrintStreamBuffer) FlushToQueue() error {
 	if psb.counter > 0 {
-		fmt.Println(psb.message)
 		if psb.q != nil {
 			lm := messages.NewLogsMessage(psb.buildno, psb.message)
 			err := psb.q.Publish(false, lm)
@@ -40,17 +39,12 @@ func (psb *PrintStreamBuffer) Flush() error {
 	return nil
 }
 
-func (psb *PrintStreamBuffer) Print(data string) error {
+func (psb *PrintStreamBuffer) Print(data string, flushnow bool) error {
 	psb.message = fmt.Sprintf("%s%s", psb.message, data)
 	psb.counter++
-	if psb.counter >= psb.bufferSize {
-		return psb.Flush()
+	fmt.Println(data)
+	if flushnow || psb.counter >= psb.bufferSize {
+		return psb.FlushToQueue()
 	}
 	return nil
-}
-
-func (psb *PrintStreamBuffer) Println(data string) error {
-	psb.message = fmt.Sprintf("%s%s\n", psb.message, data)
-	psb.counter++
-	return psb.Flush()
 }
