@@ -18,7 +18,23 @@ Used to run CI behind firewalls and collect result stream it to a public place
 ### Installing rabbitmq
 
 - Installing [rabbitmq](https://www.rabbitmq.com/download.html)
-- Installing [JMS Plugin](https://www.rabbitmq.com/jms-client.html)
+- Install rabbitmq_management plugin
+- Create admin user
+- Installing JMS Plugin
+
+#### rabbitmq_management
+
+```bash
+$ sudo rabbitmqctl add_user mqadmin mqadminpassword
+$ sudo rabbitmqctl set_user_tags mqadmin administrator
+$ sudo rabbitmqctl set_permissions -p / mqadmin ".*" ".*" ".*"
+```
+
+#### jms plugin
+
+```bash
+$ sudo rabbitmq-plugins enable rabbitmq_jms_topic_exchange
+```
 
 ### Requestor Configuration
 
