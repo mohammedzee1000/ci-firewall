@@ -25,6 +25,13 @@ Used to run CI behind firewalls and collect result stream it to a public place
 #### rabbitmq_management
 
 ```bash
+$ sudo rabbitmq-plugins enable rabbitmq_management
+$ sudo chown -R rabbitmq:rabbitmq /var/lib/rabbitmq/
+```
+
+#### Create admin user
+
+```bash
 $ sudo rabbitmqctl add_user mqadmin mqadminpassword
 $ sudo rabbitmqctl set_user_tags mqadmin administrator
 $ sudo rabbitmqctl set_permissions -p / mqadmin ".*" ".*" ".*"
