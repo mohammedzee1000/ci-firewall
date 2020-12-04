@@ -56,7 +56,7 @@ The requestor MUST have following information in it, so that it can be passed as
 - *Kind*: The kind of target. `PR|BRANCH|TAG`
 - *Run Script*: The script to run on the jenkins. Relative to repo root
 - *Setup Script*: The script to run before run script. Relative to repo root.
-- *Run Script URL*: The url to remote run script, if any. Will be saved as `Run Script`
+- *Run Script URL(optional)*: The url to remote run script, if any. Will be saved as `Run Script`. It is not compulsory and is mainly there to support workflows where run script is not in the repo itself
 
 ### Worker Jenkins job configuration
 
