@@ -1,10 +1,10 @@
 package messages
 
 const (
-	KindBuild    = "Build"
-	KindLog      = "Log"
-	KindStatus   = "Status"
-	KindFinalize = "Finalize"
+	KindBuild  = "Build"
+	KindLog    = "Log"
+	KindStatus = "Status"
+	KindFinal  = "Final"
 )
 
 type Message struct {
@@ -31,8 +31,8 @@ func (m *Message) IsStatus() bool {
 	return m.Kind == KindStatus
 }
 
-func (m *Message) IsFinalize() bool {
-	return m.Kind == KindFinalize
+func (m *Message) IsFinal() bool {
+	return m.Kind == KindFinal
 }
 
 type BuildMessage struct {
@@ -69,12 +69,12 @@ func NewStatusMessage(build int, success bool) *StatusMessage {
 	}
 }
 
-type FinalizeMessage struct {
+type FinalMessage struct {
 	*Message
 }
 
-func NewFinalizeMessage(build int) *FinalizeMessage {
-	return &FinalizeMessage{
-		Message: newMessage(KindFinalize, build),
+func NewFinalMessage(build int) *FinalMessage {
+	return &FinalMessage{
+		Message: newMessage(KindFinal, build),
 	}
 }

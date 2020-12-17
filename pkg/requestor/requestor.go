@@ -103,7 +103,7 @@ func (r *Requestor) consumeMessages() error {
 					if success {
 						success = sm.Success
 					}
-				} else if m.IsFinalize() {
+				} else if m.IsFinal() {
 					if success {
 						done <- nil
 					} else {

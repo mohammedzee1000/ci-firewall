@@ -32,7 +32,7 @@ type Worker struct {
 	repoDir         string
 	sshNodes        *node.NodeList
 	psb             *printstreambuffer.PrintStreamBuffer
-	finalize        bool
+	final           bool
 	tags            []string
 }
 
@@ -42,7 +42,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, finalize bool, tags []string) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -54,7 +54,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		envVars:         envVars,
 		repoDir:         "repo",
 		sshNodes:        sshNodes,
-		finalize:        finalize,
+		final:           final,
 		tags:            tags,
 	}
 	if amqpURI != "" {
@@ -346,8 +346,8 @@ func (w *Worker) sendStatusMessage(success bool) error {
 }
 
 func (w *Worker) sendFinalizeMessage() error {
-	if w.rcvq != nil && w.finalize {
-		return w.rcvq.Publish(false, messages.NewFinalizeMessage(w.jenkinsBuild))
+	if w.rcvq != nil && w.final {
+		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild))
 	}
 	return nil
 }
