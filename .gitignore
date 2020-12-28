@@ -16,6 +16,7 @@ ci-firewall
 ci-firewall.tar.gz
 test-nodes.json
 dist
+cmd/tester/tester.go
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

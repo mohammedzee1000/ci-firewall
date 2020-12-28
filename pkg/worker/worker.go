@@ -34,6 +34,7 @@ type Worker struct {
 	psb             *printstreambuffer.PrintStreamBuffer
 	final           bool
 	tags            []string
+	stripansicolor  bool
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -42,7 +43,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -56,6 +57,7 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		sshNodes:        sshNodes,
 		final:           final,
 		tags:            tags,
+		stripansicolor:  stripANSIColor,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -107,7 +109,7 @@ func (w *Worker) sendBuildInfo() error {
 
 //printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
 func (w *Worker) printAndStreamLog(tags []string, msg string) error {
-	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false)
+	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false, w.stripansicolor)
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -115,7 +117,7 @@ func (w *Worker) printAndStreamLog(tags []string, msg string) error {
 }
 
 func (w *Worker) handleCommandError(tags []string, err error) error {
-	err1 := w.psb.Print(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err), true)
+	err1 := w.psb.Print(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err), true, w.stripansicolor)
 	if err1 != nil {
 		return fmt.Errorf("failed to stream command error message %w", err)
 	}
@@ -125,12 +127,12 @@ func (w *Worker) handleCommandError(tags []string, err error) error {
 //printAndStreamInfo prints and streams an info msg
 func (w *Worker) printAndStreamInfo(tags []string, info string) error {
 	toprint := fmt.Sprintf("%v !!!%s!!!\n", tags, info)
-	return w.psb.Print(toprint, true)
+	return w.psb.Print(toprint, true, w.stripansicolor)
 }
 
 //printAndStreamCommand print and streams a command. Returns error in case of fail
 func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
-	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true)
+	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true, w.stripansicolor)
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error

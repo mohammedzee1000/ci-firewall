@@ -3,6 +3,7 @@ module github.com/mohammedzee1000/ci-firewall
 go 1.14
 
 require (
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/bndr/gojenkins v1.0.1
 	github.com/google/uuid v1.1.2
 	github.com/kr/text v0.2.0 // indirect

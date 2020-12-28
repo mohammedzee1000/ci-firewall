@@ -3,6 +3,7 @@ package printstreambuffer
 import (
 	"fmt"
 
+	"github.com/acarl005/stripansi"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
 )
@@ -39,10 +40,14 @@ func (psb *PrintStreamBuffer) FlushToQueue() error {
 	return nil
 }
 
-func (psb *PrintStreamBuffer) Print(data string, flushnow bool) error {
+func (psb *PrintStreamBuffer) Print(data string, flushnow bool, stripAnsiColor bool) error {
 	psb.message = fmt.Sprintf("%s%s", psb.message, data)
 	psb.counter++
-	fmt.Println(data)
+	if stripAnsiColor {
+		fmt.Println(stripansi.Strip(data))
+	} else {
+		fmt.Println(data)
+	}
 	if flushnow || psb.counter >= psb.bufferSize {
 		return psb.FlushToQueue()
 	}

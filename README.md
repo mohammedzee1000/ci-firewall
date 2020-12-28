@@ -147,6 +147,7 @@ Main Command:
 - *Stand Alone(optional)*: defaults to false. In this more the worker assumes there is no request, hence no queues communication. Everything else remains same. (param `--standalone=true`). This also means you will need to provide the `CI_MESSAGE` yourself. See below for example.
 - *Environment Variables(optional)*: The list environment variables to make available to the scripts apart from `SCRIPT_IDENTITY, BASE_OS and ARCH` (param `--env FOO=BAR`). Every use appends to list.
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
+- *Strip ANSI Color*: Setting this to true, enables inbuilt stripping of ANSI Color from output. Printed by the worker. NOTE: This does not remove ANSI color from being streamed. (param `--stripansicolor`)
 
 ## SSHNodeFile
 
