@@ -12,8 +12,6 @@
 *.out
 
 # Build bins
-ci-firewall
-ci-firewall.tar.gz
 test-nodes.json
 dist
 cmd/tester/tester.go
