@@ -42,6 +42,7 @@ func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target
 	return r
 }
 
+//initQueues initializes rabbitmq queues for PR, Branch or Tag. Returns error if fails
 func (r *Requestor) initQueus() error {
 	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
@@ -57,15 +58,16 @@ func (r *Requestor) initQueus() error {
 	return nil
 }
 
+//sendBuildRequest creates build request. Returns error if fails
 func (r *Requestor) sendBuildRequest() error {
-	var err error
-	err = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch))
+	var err error = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch))
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}
 	return nil
 }
 
+// consumeMessages send ack for finished work on a delivery(i.e. - successfull execution of request from rcvq), and returns error if fails
 func (r *Requestor) consumeMessages() error {
 	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
@@ -107,7 +109,7 @@ func (r *Requestor) consumeMessages() error {
 					if success {
 						done <- nil
 					} else {
-						done <- fmt.Errorf("Failed the test, see logs above ^")
+						done <- fmt.Errorf("failed the test, see logs above ^")
 					}
 					return
 				}
@@ -141,6 +143,7 @@ func (r *Requestor) Done() chan error {
 	return r.done
 }
 
+//Shutdown shuts down the requestor and worker , returns error if any
 func (r *Requestor) ShutDown() error {
 	err := r.sendq.Shutdown()
 	if err != nil {
