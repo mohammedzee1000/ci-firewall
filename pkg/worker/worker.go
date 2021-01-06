@@ -243,13 +243,13 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 	var err error
 	if oldstatus {
 		status := true
-		//1 run the setup script, if it is provided
+
+		//1 Setup the runCmd based on if setup script and run script
+		var runCmd string
 		if w.cimsg.SetupScript != "" {
-			status, err = w.runCommand(status, ex, repoDir, []string{"sh", w.cimsg.SetupScript})
-			if err != nil {
-				return false, fmt.Errorf("failed to run setup script")
-			}
+			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, "; ")
 		}
+		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
 		//2 Download runscript, if provided
 		if w.cimsg.RunScriptURL != "" {
 			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL})
@@ -258,8 +258,8 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 			}
 		}
 
-		//3 run run script
-		status, err = w.runCommand(status, ex, repoDir, []string{"sh", w.cimsg.RunScript})
+		//3 run run cmd
+		status, err = w.runCommand(status, ex, repoDir, []string{"sh", "-c", runCmd})
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
 		}
