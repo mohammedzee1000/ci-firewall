@@ -43,7 +43,7 @@ func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target
 }
 
 //initQueues initializes rabbitmq queues for PR, Branch or Tag. Returns error if fails
-func (r *Requestor) initQueus() error {
+func (r *Requestor) initQueues() error {
 	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
@@ -124,7 +124,7 @@ func (r *Requestor) consumeMessages() error {
 }
 
 func (r *Requestor) Run() error {
-	err := r.initQueus()
+	err := r.initQueues()
 	if err != nil {
 		return err
 	}

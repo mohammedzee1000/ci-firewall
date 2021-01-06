@@ -8,6 +8,7 @@ import (
 	"github.com/bndr/gojenkins"
 )
 
+//CleanupOldBuilds stops old jenkins jobs which are running, or else returns error
 func CleanupOldBuilds(url, username, password, jobName string, currentBuild int, filter func(params map[string]string) bool) error {
 	jenkins, err := gojenkins.CreateJenkins(nil, url, username, password).Init()
 	if err != nil {
