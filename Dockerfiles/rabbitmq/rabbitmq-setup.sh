@@ -1,4 +1,6 @@
 #!/usr/bin/bash
+(./usr/loacal/bin/docker-entrypoint.sh)&
+sleep 5
 #login with guestuser
 rabbitmqctl add_user mqadmin mqadminpassword
 rabbitmqctl set_user_tags mqadmin administrator
