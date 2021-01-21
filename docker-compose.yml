@@ -23,5 +23,5 @@ services:
     container_name: rabbitmq
   ci-firewall:
     build:
-      context: ./Dockerfiles/cifirewall/
+      context: .
     
