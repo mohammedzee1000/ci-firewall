@@ -191,9 +191,9 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	var err error
 	var chkout string
 	//Remove any existing workdir of same name, ussually due to termination of jobs
-	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, "||", "true"})
+	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, })
 	if err != nil {
-		return false, fmt.Errorf("failed to delete workdir %w", err)
+		w.handleCommandError(ex.GetTags(), err)
 	}
 	//create new workdir and repodir
 	status, err = w.runCommand(status, ex, "", []string{"mkdir", "-p", repoDir})
