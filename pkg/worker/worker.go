@@ -191,7 +191,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	var err error
 	var chkout string
 	//Remove any existing workdir of same name, ussually due to termination of jobs
-	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
+	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, "||", "true"})
 	if err != nil {
 		return false, fmt.Errorf("failed to delete workdir %w", err)
 	}
@@ -250,6 +250,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, "; ")
 		}
 		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
+		runCmd = fmt.Sprintf("\"%s\"", runCmd)
 		//2 Download runscript, if provided
 		if w.cimsg.RunScriptURL != "" {
 			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL})

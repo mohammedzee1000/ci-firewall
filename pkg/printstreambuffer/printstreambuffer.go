@@ -40,10 +40,10 @@ func (psb *PrintStreamBuffer) FlushToQueue() error {
 	return nil
 }
 
-func (psb *PrintStreamBuffer) Print(data string, flushnow bool, stripAnsiColor bool) error {
+func (psb *PrintStreamBuffer) Print(data string, flushnow bool, stripAnsiColorJenkins bool) error {
 	psb.message = fmt.Sprintf("%s%s", psb.message, data)
 	psb.counter++
-	if stripAnsiColor {
+	if stripAnsiColorJenkins {
 		fmt.Println(stripansi.Strip(data))
 	} else {
 		fmt.Println(data)

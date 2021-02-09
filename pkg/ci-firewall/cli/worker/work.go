@@ -137,6 +137,7 @@ func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
 		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,
+		false,
 	)
 	success, err := wo.worker.Run()
 	if err != nil {
