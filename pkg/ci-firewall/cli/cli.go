@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/requestor"
+	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/toolkit"
 	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/version"
 	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/worker"
 	"github.com/mohammedzee1000/ci-firewall/pkg/util"
@@ -25,6 +26,7 @@ func ciFirewallCmd(name, fullname string) *cobra.Command {
 		requestor.NewCmdRequestor(requestor.RequestRecommendedCommandName, util.GetFullName(fullname, requestor.RequestRecommendedCommandName)),
 		worker.NewWorkCmd(worker.WorkRecommendedCommandName, util.GetFullName(fullname, worker.WorkRecommendedCommandName)),
 		version.NewCmdVersion(version.VersionRecommendedCommandName, util.GetFullName(fullname, version.VersionRecommendedCommandName)),
+		toolkit.NewToolkitCommand(toolkit.ToolKitRecommendedCommandName, util.GetFullName(fullname, toolkit.ToolKitRecommendedCommandName)),
 	)
 	return cmd
 }
