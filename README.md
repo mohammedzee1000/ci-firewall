@@ -149,6 +149,36 @@ Main Command:
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 - *Strip ANSI Color*: Setting this to true, enables inbuilt stripping of ANSI Color from output. Printed by the worker. NOTE: This does not remove ANSI color from being streamed. (param `--stripansicolor`)
 
+### Toolkit Commands
+
+`ci-firewall` provides a set of toolkit commands available under `ci-firewall toolkit`. These commands are helpers to hel
+with certain common operations
+
+#### Add nodes to nodefile
+
+Command:
+```bash
+ $ ci-firewall toolkit nodefile addnode
+```
+This command allows you to add node information to nodefile.
+
+##### Parameters
+
+- *nodefile*: Path of the json nodefile where you want to add the node. Defaults to `nodes.json`
+  Arg `--nodefile`.
+- *name*: Name of the node. Arg `--name`
+- *username*: The username to ssh into the node with `--user`.
+- *Address*: The ip or hostname of the node you want to ssh into.
+- *port*: The numeric port for ssh. Defaults to `22`. Arg `--port`.
+- *baseos*: The baseos of the node. Eg linux|windows|mac. Defaults to `linux`. Arg `--baseos`
+- *architecture*: The arch of the node. Defaults to `x86_64`. Arg `--arch`.
+- *password*: The password, if any for the node. Arg `--password`.
+- *private key file path*: The path of the private key file, if any. 
+  Compulsory if password is not provided and recommended over password. 
+  Arg `--privatekeyfile`
+- *Tags*: List of tags to attach to node. Multiple can be provided with same option. 
+  Arg `--tag`
+
 ## SSHNodeFile
 
 It is possible to run your tests by sshing to other nodes that are reachable from your jenkins slave. To do so, you need to provide information in a json file, whose path, you will specify as `ci-firewall work --sshnodefile /path/to/test-nodes.json`. This is an array so you can pass paths of multiple node files as well simply by repeating `--sshnodefile`.
