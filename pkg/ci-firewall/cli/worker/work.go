@@ -35,6 +35,7 @@ type WorkOptions struct {
 	final            bool
 	tags             []string
 	stripAnsiColor   bool
+	redact bool
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -137,6 +138,7 @@ func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
 		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,
+		true,
 	)
 	success, err := wo.worker.Run()
 	if err != nil {
@@ -174,6 +176,7 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().IntVar(&o.streambufferSize, "streambuffersize", 10, "the size of stream buffer, default to 10.")
 	cmd.Flags().BoolVar(&o.final, "final", true, "if true, then final message is sent to requestor (basically telling it there is no more testing left. Allows for pipeline usecases). Default is true")
 	cmd.Flags().StringArrayVar(&o.tags, "tag", []string{}, "tags to print in the logs. Note ssh node name is automatically printed")
+	cmd.Flags().BoolVar(&o.redact, "redact", true, "if true, then injected envs and ip addresses are redacted from logs sent over queue. Default is true")
 	genericclioptions.AddStripANSIColorFlag(cmd, &o.stripAnsiColor)
 	return cmd
 }

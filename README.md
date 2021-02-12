@@ -132,7 +132,7 @@ Main Command:
 
 - *AMQP URL*: The full URL of amqp server. (env `AMQP_URI` or param `--amqpurl`)
 - *CI Message Variable* This is the name of the environment variable containing the CI message send by request. It is configured on the jenkins job in the  CI subscriber. Defaults to `CI_MESSAGE`. (param `--cimessageenv`)
-- *Recieve Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (env `RCV_QUEUE_NAME` or param `recievequeue`)
+- *Receive Queue Name(optional)*: The name of the queue in which replies are recieved. Defaults to `rcv_jenkinsproject_kind_target`. (env `RCV_QUEUE_NAME` or param `recievequeue`)
 - *Jenkins Job/Project*: The name of jenkins project/job. (env `JOB_NAME` or param `--jenkinsproject`).
 - *Jenkins URL*: The URL of the jenkins server (this should be already exposed and `JENKINS_URL` env in jenkins build or param `--jenkinsurl`)
 *Jenkins Build Number*: The number of the jenkins build (this should already be exposed as `BUILD_NUMBER` in jenkins build or param `--jenkinsbuild`).
@@ -148,6 +148,7 @@ Main Command:
 - *Environment Variables(optional)*: The list environment variables to make available to the scripts apart from `SCRIPT_IDENTITY, BASE_OS and ARCH` (param `--env FOO=BAR`). Every use appends to list.
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 - *Strip ANSI Color*: Setting this to true, enables inbuilt stripping of ANSI Color from output. Printed by the worker. NOTE: This does not remove ANSI color from being streamed. (param `--stripansicolor`)
+- *Redact*: Setting this to true enables redaction of envs (`--env` values) and IP addresses from logs sent to the requester. Default is `true`. Arg `--redact=true`
 
 ### Toolkit Commands
 

@@ -2,6 +2,8 @@ package printstreambuffer
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/acarl005/stripansi"
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
@@ -14,20 +16,31 @@ type PrintStreamBuffer struct {
 	bufferSize int
 	counter    int
 	buildno    int
+	envs       map[string]string
+	redact     bool
 }
 
-func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int) *PrintStreamBuffer {
+func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int, envs map[string]string, redact bool) *PrintStreamBuffer {
 	return &PrintStreamBuffer{
 		q:          q,
 		bufferSize: bufsize,
 		counter:    0,
 		buildno:    buildno,
+		envs:       envs,
+		redact:     redact,
 	}
 }
 
 func (psb *PrintStreamBuffer) FlushToQueue() error {
 	if psb.counter > 0 {
 		if psb.q != nil {
+			if psb.redact {
+				for k, v := range psb.envs {
+					psb.message = strings.ReplaceAll(psb.message, v, fmt.Sprintf("-%s:VALUE REDACTED-", k))
+				}
+				ipre := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
+				psb.message = ipre.ReplaceAllString(psb.message, "-IP REDACTED-")
+			}
 			lm := messages.NewLogsMessage(psb.buildno, psb.message)
 			err := psb.q.Publish(false, lm)
 			if err != nil {
