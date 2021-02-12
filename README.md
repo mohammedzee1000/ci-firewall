@@ -6,7 +6,7 @@ Used to run CI behind firewalls and collect result stream it to a public place
 
 **WARNING**: By using this, you are punching a hole through your firewall. Please ensure that your trigger mechanism is configured correctly so as to not allow random people ot change you code/scripts (like an ok-to-test filter for eg) in a way to abuse your system(by triggering random builds etc) or expose to private information.
 
-**WARNING**: This tool does NOT HANDLE scrubbing of logs to prevent leakage of private information. You are respondsible for your own scrubbing. Whatever your script prints to stdout/stderr, this tool streams. So ensure your script is handles the scrubbing
+**WARNING**: This tool does handle some basic scrubbing of logs. Envs injected on jenkins behind firewall using the --env flag and ip addresses are auto-redacted to prevent leakage of private information. However, you are respondsible for any furthur scrubbing of your logs. Please ensure addional scrubbing is handled by your setup and run scripts.
 
 ## Pre-requisites
 
