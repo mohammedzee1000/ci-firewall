@@ -36,7 +36,9 @@ func (psb *PrintStreamBuffer) FlushToQueue() error {
 		if psb.q != nil {
 			if psb.redact {
 				for k, v := range psb.envs {
-					psb.message = strings.ReplaceAll(psb.message, v, fmt.Sprintf("-%s:VALUE REDACTED-", k))
+					if k != "CI" {
+						psb.message = strings.ReplaceAll(psb.message, v, fmt.Sprintf("-%s:VALUE REDACTED-", k))
+					}
 				}
 				ipre := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
 				psb.message = ipre.ReplaceAllString(psb.message, "-IP REDACTED-")

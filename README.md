@@ -148,7 +148,7 @@ Main Command:
 - *Environment Variables(optional)*: The list environment variables to make available to the scripts apart from `SCRIPT_IDENTITY, BASE_OS and ARCH` (param `--env FOO=BAR`). Every use appends to list.
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 - *Strip ANSI Color*: Setting this to true, enables inbuilt stripping of ANSI Color from output. Printed by the worker. NOTE: This does not remove ANSI color from being streamed. (param `--stripansicolor`)
-- *Redact*: Setting this to true enables redaction of envs (`--env` values) and IP addresses from logs sent to the requester. Default is `true`. Arg `--redact=true`
+- *Redact*: Setting this to true enables redaction of envs (`--env` values) and IP addresses from logs sent to the requester. Default is `true`. Arg `--redact=true`. The only exception is the env `CI`.
 
 ### Toolkit Commands
 
