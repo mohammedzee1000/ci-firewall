@@ -36,6 +36,8 @@ type WorkOptions struct {
 	tags             []string
 	stripAnsiColor   bool
 	redact bool
+	gitUser string
+	gitEmail string
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -123,6 +125,9 @@ func (wo *WorkOptions) Validate() (err error) {
 			}
 		}
 	}
+	if (wo.gitUser != "" && wo.gitEmail == "") || (wo.gitEmail != "" && wo.gitUser == "") {
+		return fmt.Errorf("both git user and git email must be provided together or neither of them")
+	}
 	return nil
 }
 
@@ -138,7 +143,7 @@ func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
 		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,
-		true,
+		true, wo.gitUser, wo.gitEmail,
 	)
 	success, err := wo.worker.Run()
 	if err != nil {
@@ -177,6 +182,8 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().BoolVar(&o.final, "final", true, "if true, then final message is sent to requestor (basically telling it there is no more testing left. Allows for pipeline usecases). Default is true")
 	cmd.Flags().StringArrayVar(&o.tags, "tag", []string{}, "tags to print in the logs. Note ssh node name is automatically printed")
 	cmd.Flags().BoolVar(&o.redact, "redact", true, "if true, then injected envs and ip addresses are redacted from logs sent over queue. Default is true")
+	cmd.Flags().StringVar(&o.gitUser, "gituser", "", "The git user you want to configure for repo")
+	cmd.Flags().StringVar(&o.gitEmail, "gitemail", "", "The email of git user you want to configure on repo")
 	genericclioptions.AddStripANSIColorFlag(cmd, &o.stripAnsiColor)
 	return cmd
 }

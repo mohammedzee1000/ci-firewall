@@ -36,6 +36,8 @@ type Worker struct {
 	tags            []string
 	stripansicolor  bool
 	redact          bool
+	gitUser         string
+	gitEmail        string
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -44,7 +46,7 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string) *Worker {
 	w := &Worker{
 		rcvq:            nil,
 		cimsg:           cimsg,
@@ -60,6 +62,9 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		tags:            tags,
 		stripansicolor:  stripANSIColor,
 		redact:          redact,
+		cimsgenv:        cimsgenv,
+		gitUser: gitUser,
+		gitEmail: gitEmail,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -188,6 +193,23 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	return false, nil
 }
 
+func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) (bool, error) {
+	if oldstatus {
+		var status bool
+		var err error
+		if w.gitUser != ""  && w.gitEmail != "" {
+			status, err = w.runCommand(true, ex, repoDir, []string{"git", "config", "user.name", fmt.Sprintf("\"%s\"", w.gitUser)})
+			if err != nil {
+				return false, fmt.Errorf("failed to set git user %w", err)
+			}
+			status, err = w.runCommand(status, ex, repoDir, []string{"git", "config", "user.email", fmt.Sprintf("\"%s\"", w.gitEmail)})
+		}
+	} else {
+		return false, nil
+	}
+	return true, nil
+}
+
 //setupTests sets up testing using Executor ex, in workDir the workdirectory and repoDir the repo clone location. Returns success and error.
 func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool, error) {
 	var err error
@@ -205,6 +227,10 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
 	if err != nil {
 		return false, fmt.Errorf("git clone failed %w", err)
+	}
+	status, err = w.setupGit(status, ex, repoDir)
+	if err != nil {
+		return false, fmt.Errorf("failed to setup git %w", err)
 	}
 	if w.cimsg.Kind == messages.RequestTypePR {
 		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
