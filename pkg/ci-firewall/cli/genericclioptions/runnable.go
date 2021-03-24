@@ -25,6 +25,7 @@ func GenericRun(o Runnable, cmd *cobra.Command, args []string) {
 	LogErrorAndExit(o.Run(), "")
 }
 
+//AddStripANSIColorFlag remove ANSI color form log
 func AddStripANSIColorFlag(cmd *cobra.Command, v *bool) {
 	cmd.Flags().BoolVar(v, "stripansicolor", false, "If true, then ANSI color will be stripped before printing the logs")
 }
