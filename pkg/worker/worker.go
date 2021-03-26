@@ -275,7 +275,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		//1 Setup the runCmd based on if setup script and run script
 		var runCmd string
 		if w.cimsg.SetupScript != "" {
-			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, "; ")
+			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, " && ")
 		}
 		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
 		runCmd = fmt.Sprintf("\"%s\"", runCmd)
