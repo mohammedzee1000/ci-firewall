@@ -25,6 +25,7 @@ type NodeSSHExecutor struct {
 func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
 	var cfg *ssh.ClientConfig
 	if nd.SSHKey != "" {
+		klog.V(2).Infof("parsing ssh private key")
 		signer, err := ssh.ParsePrivateKey([]byte(nd.SSHKey))
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse private key %w", err)
@@ -69,6 +70,7 @@ func (ne *NodeSSHExecutor) initClient() error {
 	} else {
 		addr = fmt.Sprintf("%s:%d", ne.nd.Address, ne.nd.Port)
 	}
+	klog.V(4).Infof("establishing ssh connection to node %#v using client config %#v", ne.nd, ne.cfg)
 	ne.client, err = ssh.Dial("tcp", addr, ne.cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize ssh client %w", err)
@@ -78,6 +80,7 @@ func (ne *NodeSSHExecutor) initClient() error {
 
 func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map[string]string, tags []string) (*bufio.Reader, error) {
 	var err error
+	klog.V(2).Infof("initializing command")
 	//setup env
 	var envString string
 	envVars[node.NodeBaseOS] = ne.nd.BaseOS
@@ -126,6 +129,7 @@ func (ne *NodeSSHExecutor) Start() error {
 	if ne.client == nil || ne.session == nil {
 		return fmt.Errorf("did you run InitCommand first")
 	}
+	klog.V(2).Infof("Executing ssh command")
 	err := ne.session.Start(ne.commandString)
 	if err != nil {
 		return fmt.Errorf("failed to start command %w", err)
