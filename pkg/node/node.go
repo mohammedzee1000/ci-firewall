@@ -70,6 +70,7 @@ func NodesFromFile(filepath string) (*NodeList, error) {
 
 func NodesFromFiles(files []string) (*NodeList, error) {
 	nl := newNodeList()
+
 	for _, f := range files {
 		cnl, err := NodesFromFile(f)
 		if err != nil {

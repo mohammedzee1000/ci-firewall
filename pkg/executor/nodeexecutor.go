@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"k8s.io/klog/v2"
 	"strings"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
@@ -92,6 +93,7 @@ func (ne *NodeSSHExecutor) InitCommand(workdir string, cmd []string, envVars map
 	ne.tags = append(ne.tags, ne.nd.Tags...)
 	//appendenvstring
 	ne.commandString = fmt.Sprintf("%s%s", envString, ne.commandString)
+	klog.V(4).Infof("full ssh command %s", ne.commandString)
 	//setupclient
 	err = ne.initClient()
 	if err != nil {

@@ -3,6 +3,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog/v2"
 	"log"
 
 	"github.com/streadway/amqp"
@@ -25,6 +26,8 @@ func NewAMQPQueue(amqpURI, queueName string) *AMQPQueue {
 
 func (aq *AMQPQueue) Init() error {
 	var err error
+	klog.V(2).Infof("Initializing normal queue %s on provided amqp server", aq.queueName)
+	klog.V(3).Infof("Connecting to amqp server %s", aq.url)
 	aq.conn, err = amqp.Dial(aq.url)
 	if err != nil {
 		return fmt.Errorf("failed to dail aqmp server %w", err)
@@ -44,8 +47,10 @@ func (aq *AMQPQueue) Publish(remotebuild bool, data interface{}) error {
 	var err error
 	datas, err := json.Marshal(data)
 	if err != nil {
+		klog.V(4).Infof("failed to marshal data %#v", data)
 		return fmt.Errorf("failed to marshal struct %w", err)
 	}
+	klog.V(2).Infof("publishing data to normal rcv queue")
 	publishing := amqp.Publishing{
 		Headers:         amqp.Table{},
 		ContentType:     "application/json",
