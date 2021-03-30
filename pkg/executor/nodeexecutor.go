@@ -23,6 +23,7 @@ type NodeSSHExecutor struct {
 }
 
 func NewNodeSSHExecutor(nd *node.Node) (*NodeSSHExecutor, error) {
+	klog.V(4).Infof("initializing node ssh executor for node %#v", nd)
 	var cfg *ssh.ClientConfig
 	if nd.SSHKey != "" {
 		klog.V(2).Infof("parsing ssh private key")
@@ -138,6 +139,7 @@ func (ne *NodeSSHExecutor) Start() error {
 }
 
 func (ne *NodeSSHExecutor) Wait() (bool, error) {
+	klog.V(2).Infof("waiting for command execution to complete")
 	err := ne.session.Wait()
 	if err != nil {
 		if err, ok := err.(*ssh.ExitError); ok {
@@ -150,6 +152,7 @@ func (ne *NodeSSHExecutor) Wait() (bool, error) {
 }
 
 func (ne *NodeSSHExecutor) Close() error {
+	klog.V(2).Infof("closing ssh connection")
 	err := ne.session.Close()
 	if err != nil {
 		return fmt.Errorf("unable to close session %w", err)

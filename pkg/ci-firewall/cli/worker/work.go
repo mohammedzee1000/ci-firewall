@@ -3,6 +3,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog/v2"
 	"os"
 	"strings"
 
@@ -54,12 +55,17 @@ func (wo *WorkOptions) envVarsArrToEnvVars() error {
 		}
 		wo.envVars[res[0]] = res[1]
 	}
+
+	klog.V(5).Infof("work options after complete %#v", wo)
 	return nil
 }
 
 func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) error {
+	klog.V(5).Infof("work options before complete %#v", wo)
 	var err error
+	klog.V(2).Infof("parsing ci message")
 	cimsgdata := os.Getenv(wo.cimsgenv)
+	klog.V(4).Infof("ci message extracted from %s looks like %s", wo.cimsgenv, cimsgdata)
 	if cimsgdata == "" {
 		return fmt.Errorf("the env content seems empty, did you provide the right value?")
 	}
@@ -68,6 +74,7 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal CI message %w", err)
 	}
+	klog.V(4).Infof("Marshalled ci message: %#v", wo.cimsg)
 	if wo.cimsg.SetupScript != "" && wo.cimsg.SetupScript[0] != '.' {
 		wo.cimsg.SetupScript = fmt.Sprintf("./%s", wo.cimsg.SetupScript)
 	}
@@ -135,11 +142,14 @@ func (wo *WorkOptions) Run() (err error) {
 	var nl *node.NodeList
 	nl = nil
 	if len(wo.sshNodesFiles) > 0 {
+		klog.V(2).Infof("parsing ssh node files")
 		nl, err = node.NodesFromFiles(wo.sshNodesFiles)
 		if err != nil {
 			return fmt.Errorf("unable to get node list %w", err)
 		}
+		klog.V(4).Infof("parsed node list looks like %#v", nl)
 	}
+	klog.V(2).Infof("initializing worker")
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
 		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,

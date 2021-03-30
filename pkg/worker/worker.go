@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/klog/v2"
 	"path/filepath"
 	"strings"
 
@@ -69,17 +70,21 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
 	}
+	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
+	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
 	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.envVars, w.redact)
 	return w
 }
 
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
 func (w *Worker) cleanupOldBuilds() error {
+	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
 	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
 		for k, v := range params {
 			if k == w.cimsgenv {
 				//v is the cimsg of this job
+				klog.V(3).Infof("parsing ci message for build being looked at")
 				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
 				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch {
@@ -98,6 +103,7 @@ func (w *Worker) cleanupOldBuilds() error {
 //initQueues initializes rabbitmq queues used by worker. Returns error in case of fail
 func (w *Worker) initQueues() error {
 	if w.rcvq != nil {
+		klog.V(2).Infof("initialising queues for worker")
 		err := w.rcvq.Init()
 		if err != nil {
 			return fmt.Errorf("failed to initialize rcv queue %w", err)
@@ -109,6 +115,7 @@ func (w *Worker) initQueues() error {
 //sendBuildInfo sends information about the build. Returns error in case of fail
 func (w *Worker) sendBuildInfo() error {
 	if w.rcvq != nil {
+		klog.V(2).Infof("publishing build information on rcv queue")
 		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
 	}
 	return nil

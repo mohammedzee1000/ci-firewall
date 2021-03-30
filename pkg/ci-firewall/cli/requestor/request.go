@@ -2,6 +2,7 @@ package requestor
 
 import (
 	"fmt"
+	"k8s.io/klog/v2"
 	"log"
 	"os"
 	"time"
@@ -39,6 +40,7 @@ func NewRequestOptions() *RequestOptions {
 }
 
 func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []string) error {
+	klog.V(5).Infof("request options before complete %#v", ro)
 	if ro.kind == "" {
 		ro.kind = messages.RequestTypePR
 	}
@@ -48,6 +50,7 @@ func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []strin
 	if ro.lazy {
 		ro.rcvIdent = fmt.Sprintf("%s.lazy", ro.rcvIdent)
 	}
+	klog.V(5).Infof("request options after complete %#v", ro)
 	return nil
 }
 
@@ -83,6 +86,7 @@ func (ro *RequestOptions) Validate() (err error) {
 }
 
 func (ro *RequestOptions) Run() (err error) {
+	klog.V(2).Infof("initializing requestor")
 	ro.requestor = requestor.NewRequestor(
 		ro.amqpURI,
 		ro.sendQName,
@@ -97,14 +101,17 @@ func (ro *RequestOptions) Run() (err error) {
 		ro.runScriptURL,
 		ro.mainBranch,
 	)
+	klog.V(4).Infof("requester looks like %#v", ro.requestor)
 	err = ro.requestor.Run()
 	if err != nil {
 		return err
 	}
+	klog.V(2).Infof("waiting for requester to ext")
+	klog.V(3).Infof("requester will timeout after %s", ro.timeout)
 	select {
 	case done := <-ro.requestor.Done():
 		if done == nil {
-			log.Println("Tests succeeeded, see logs above ^")
+			log.Println("Tests succeeded, see logs above ^")
 			if err := ro.requestor.ShutDown(); err != nil {
 				return fmt.Errorf("error during shutdown: %w", err)
 			}
