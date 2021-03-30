@@ -154,6 +154,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	ctags := ex.GetTags()
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
+		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
 		if err != nil {
 			return false, fmt.Errorf("failed to initialize executor %w", err)
@@ -221,6 +222,7 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool, error) {
 	var err error
 	var chkout string
+	klog.V(2).Infof("setting up tests")
 	//Remove any existing workdir of same name, ussually due to termination of jobs
 	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, })
 	if err != nil {
@@ -308,6 +310,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 //tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
 //if oldsuccess is false, then this is skipped
 func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir string) (bool, error) {
+	klog.V(2).Infof("tearing down test env")
 	if oldsuccess {
 		status, err := w.runCommand(oldsuccess, ex, "", []string{"rm", "-rf", workDir})
 		if err != nil {
@@ -327,12 +330,15 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
 	repoDir := filepath.Join(workDir, w.repoDir)
 	if nd != nil {
+		klog.V(2).Infof("no node specified, creating LocalExecutor")
 		ex, err = executor.NewNodeSSHExecutor(nd)
 		if err != nil {
 			return false, fmt.Errorf("failed to setup ssh executor %w", err)
 		}
 		w.printAndStreamInfo(ex.GetTags(), fmt.Sprintf("running tests on node %s via ssh", nd.Name))
 	} else {
+		klog.V(2).Infof("node specified, creating node executor")
+		klog.V(4).Infof("node information looks like %#v", nd)
 		ex = executor.NewLocalExecutor()
 		w.printAndStreamInfo(ex.GetTags(), "running tests locally")
 	}
@@ -357,6 +363,8 @@ func (w *Worker) run() (bool, error) {
 	status := true
 	var err error
 	if w.sshNodes != nil {
+		klog.V(2).Infof("found ssh nodes, iterating over the list")
+		klog.V(4).Infof("ssh nodes looks like %#v", w.sshNodes)
 		for _, nd := range w.sshNodes.Nodes {
 			success, err := w.test(&nd)
 			if err != nil {
@@ -377,13 +385,16 @@ func (w *Worker) run() (bool, error) {
 
 //sendStatusMessage sends the status message over queue, based on success value
 func (w *Worker) sendStatusMessage(success bool) error {
+	sm := messages.NewStatusMessage(w.jenkinsBuild, success)
+	klog.V(2).Infof("sending status message")
 	if w.rcvq != nil {
-		return w.rcvq.Publish(false, messages.NewStatusMessage(w.jenkinsBuild, success))
+		return w.rcvq.Publish(false, sm)
 	}
 	return nil
 }
 
 func (w *Worker) sendFinalizeMessage() error {
+	klog.V(2).Infof("sending final message")
 	if w.rcvq != nil && w.final {
 		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild))
 	}
