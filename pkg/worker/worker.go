@@ -235,6 +235,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to create workdir %w", err)
 	}
+	klog.V(2).Infof("cloning repo and checking out the target")
 	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
 	if err != nil {
 		return false, fmt.Errorf("git clone failed %w", err)
@@ -244,11 +245,13 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		return false, fmt.Errorf("failed to setup git %w", err)
 	}
 	if w.cimsg.Kind == messages.RequestTypePR {
+		klog.V(2).Infof("checking out PR and merging it with the main branch")
+		klog.V(3).Infof("PR %s and main branch %s", w.cimsg.Target, w.cimsg.MainBranch)
 		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
 		pulltgt := fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "fetch", "-v", "origin", pulltgt})
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in %s %w", w.cimsg.Target, w.cimsg.RepoURL, err)
+			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in repo %s %w", w.cimsg.Target, w.cimsg.RepoURL, err)
 		}
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", w.cimsg.MainBranch})
 		if err != nil {
@@ -259,6 +262,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 			return false, fmt.Errorf("failed to fast forward merge %w", err)
 		}
 	} else if w.cimsg.Kind == messages.RequestTypeBranch {
+		klog.V(2).Infof("checkout out branch")
 		chkout = w.cimsg.Target
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
@@ -266,6 +270,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 	} else if w.cimsg.Kind == messages.RequestTypeTag {
+		klog.V(2).Infof("checking out git tag")
 		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
@@ -283,16 +288,19 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 	var err error
 	if oldstatus {
 		status := true
-
+		klog.V(2).Infof("setting up test command")
 		//1 Setup the runCmd based on if setup script and run script
 		var runCmd string
 		if w.cimsg.SetupScript != "" {
+			klog.Infof("setup script detected, adding to command")
 			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, " && ")
 		}
+		klog.V(2).Infof("adding run script to command")
 		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
 		runCmd = fmt.Sprintf("\"%s\"", runCmd)
 		//2 Download runscript, if provided
 		if w.cimsg.RunScriptURL != "" {
+			klog.V(2).Infof("downloading run script for a url")
 			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL})
 			if err != nil {
 				return false, fmt.Errorf("failed to download run script")
@@ -378,6 +386,7 @@ func (w *Worker) run() (bool, error) {
 			}
 		}
 	} else {
+		klog.V(2).Infof("running test locally on slave")
 		status, err = w.test(nil)
 		if err != nil {
 			return false, err
