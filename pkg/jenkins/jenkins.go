@@ -56,6 +56,34 @@ func CleanupOldBuilds(url, username, password, jobName string, currentBuild int,
 	return nil
 }
 
+func NewerBuildsExist(url, username, password, jobName string, currentBuild int) (bool, error) {
+	klog.V(2).Infof("initializing jenkins client")
+	klog.V(4).Infof("jenkins url: %s, username: %s, password %s", url, username, password)
+	jenkins, err := gojenkins.CreateJenkins(nil, url, username, password).Init()
+	if err != nil {
+		return false, fmt.Errorf("unable to initialize jenkins %w", err)
+	}
+	klog.V(2).Infof("Getting current jenkins job")
+	klog.V(3).Infof("job name %s", jobName)
+	job, err := jenkins.GetJob(jobName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get job %s %w", jobName, err)
+	}
+	klog.V(2).Infof("getting builds in jenkins job job")
+	buildids, err := job.GetAllBuildIds()
+	if err != nil {
+		return false, fmt.Errorf("failed to get all build ids %w", err)
+	}
+	for _, bid := range buildids {
+		if bid.Number > int64(currentBuild) {
+			klog.V(2).Infof("found newer build in jenkins queue")
+			return true, nil
+		}
+	}
+	klog.V(2).Infof("no newer builds found")
+	return false, nil
+}
+
 func GetJenkinsURL() string {
 	return os.Getenv("JENKINS_URL")
 }

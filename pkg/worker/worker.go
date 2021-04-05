@@ -7,6 +7,7 @@ import (
 	"k8s.io/klog/v2"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -77,6 +78,18 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	return w
 }
 
+func (w *Worker) checkForNewerBuilds() error {
+	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild)
+	if err != nil {
+		return fmt.Errorf("failed to check for newer builds %w", err)
+	}
+	time.Sleep(20*time.Second)
+	if exists {
+		return fmt.Errorf("found newer build in queue, cancelling current")
+	}
+	return nil
+}
+
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
 func (w *Worker) cleanupOldBuilds() error {
 	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
@@ -108,6 +121,14 @@ func (w *Worker) initQueues() error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize rcv queue %w", err)
 		}
+	}
+	return nil
+}
+
+func (w *Worker) sendCancelMessage() error {
+	if w.rcvq != nil {
+		klog.V(2).Infof("sending cancel message in order to ensure requester stops following any older builds")
+		return w.rcvq.Publish(false, messages.NewCancelMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
@@ -420,7 +441,15 @@ func (w *Worker) printBuildInfo() {
 //Run runs the worker and returns error if any.
 func (w *Worker) Run() (bool, error) {
 	var success bool
-	if err := w.cleanupOldBuilds(); err != nil {
+	err := w.checkForNewerBuilds()
+	if err != nil {
+		return false, err
+	}
+	err = w.sendCancelMessage()
+	if err != nil {
+		return false, fmt.Errorf("failed to send cancel message %w", err)
+	}
+	if err = w.cleanupOldBuilds(); err != nil {
 		return false, err
 	}
 	w.printBuildInfo()
@@ -430,7 +459,7 @@ func (w *Worker) Run() (bool, error) {
 	if err := w.sendBuildInfo(); err != nil {
 		return false, fmt.Errorf("failed to send build info %w", err)
 	}
-	success, err := w.run()
+	success, err = w.run()
 	if err != nil {
 		return false, fmt.Errorf("failed to run tests %w", err)
 	}
