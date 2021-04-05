@@ -29,7 +29,7 @@ func CleanupOldBuilds(url, username, password, jobName string, currentBuild int,
 	}
 	for _, bid := range buildids {
 		klog.V(3).Infof("validating build number %d", bid.Number)
-		if bid.Number != int64(currentBuild) {
+		if bid.Number < int64(currentBuild) {
 			b, err := job.GetBuild(bid.Number)
 			if err != nil {
 				return fmt.Errorf("failed to fetch build with %w", err)
