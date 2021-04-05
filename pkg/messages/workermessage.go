@@ -14,11 +14,11 @@ type Message struct {
 	JenkinsProject string `json:"JenkinsProject"`
 }
 
-func newMessage(kind string, build int, jeninsproject string) *Message {
+func newMessage(kind string, build int, jenkinsProject string) *Message {
 	return &Message{
 		Kind:           kind,
 		Build:          build,
-		JenkinsProject: jeninsproject,
+		JenkinsProject: jenkinsProject,
 	}
 }
 
@@ -26,7 +26,7 @@ func (m *Message) IsBuild() bool {
 	return m.Kind == KindBuild
 }
 
-func (m *Message) ISLog() bool {
+func (m *Message) IsLog() bool {
 	return m.Kind == KindLog
 }
 
@@ -46,9 +46,9 @@ type BuildMessage struct {
 	*Message
 }
 
-func NewBuildMessage(build int, jenkinsjob string) *BuildMessage {
+func NewBuildMessage(build int, jenkinsProject string) *BuildMessage {
 	return &BuildMessage{
-		Message: newMessage(KindBuild, build, jenkinsjob),
+		Message: newMessage(KindBuild, build, jenkinsProject),
 	}
 }
 
@@ -57,9 +57,9 @@ type LogsMessage struct {
 	Logs string `json:"Logs"`
 }
 
-func NewLogsMessage(build int, logs string, jenkinsproject string) *LogsMessage {
+func NewLogsMessage(build int, logs string, jenkinsProject string) *LogsMessage {
 	return &LogsMessage{
-		Message: newMessage(KindLog, build, jenkinsproject),
+		Message: newMessage(KindLog, build, jenkinsProject),
 		Logs:    logs,
 	}
 }
@@ -69,9 +69,9 @@ type StatusMessage struct {
 	Success bool `json:"Success"`
 }
 
-func NewStatusMessage(build int, success bool, jenkinsproject string) *StatusMessage {
+func NewStatusMessage(build int, success bool, jenkinsProject string) *StatusMessage {
 	return &StatusMessage{
-		Message: newMessage(KindStatus, build, jenkinsproject),
+		Message: newMessage(KindStatus, build, jenkinsProject),
 		Success: success,
 	}
 }
@@ -80,9 +80,9 @@ type FinalMessage struct {
 	*Message
 }
 
-func NewFinalMessage(build int, jenkinsproject string) *FinalMessage {
+func NewFinalMessage(build int, jenkinsProject string) *FinalMessage {
 	return &FinalMessage{
-		Message: newMessage(KindFinal, build, jenkinsproject),
+		Message: newMessage(KindFinal, build, jenkinsProject),
 	}
 }
 
@@ -90,8 +90,8 @@ type CancelMessage struct {
 	*Message
 }
 
-func NewCancelMessage(build int, jenkinsproject string) *CancelMessage  {
+func NewCancelMessage(build int, jenkinsProject string) *CancelMessage  {
 	return &CancelMessage{
-		Message: newMessage(KindCancel, build, jenkinsproject),
+		Message: newMessage(KindCancel, build, jenkinsProject),
 	}
 }

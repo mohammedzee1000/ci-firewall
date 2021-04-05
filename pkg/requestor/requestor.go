@@ -26,7 +26,7 @@ type Requestor struct {
 	jenkinsProject   string
 }
 
-func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch, jenkinsJobName string) *Requestor {
+func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch, jenkinsProject string) *Requestor {
 	r := &Requestor{
 		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
 		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
@@ -40,7 +40,7 @@ func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target
 		runScriptURL:     runScriptURL,
 		mainBranch:       mainBranch,
 		done:             make(chan error),
-		jenkinsProject:   jenkinsJobName,
+		jenkinsProject:   jenkinsProject,
 	}
 	return r
 }
@@ -113,7 +113,7 @@ func (r *Requestor) consumeMessages() error {
 					}
 				} else if r.jenkinsBuild == m.Build {
 					//process other types of messages, only if message build matches current jenkins build
-					if m.ISLog() {
+					if m.IsLog() {
 						klog.V(2).Infof("received log message")
 						lm := messages.NewLogsMessage(-1, "", "")
 						err1 = json.Unmarshal(d.Body, lm)
