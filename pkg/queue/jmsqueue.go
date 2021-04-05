@@ -3,9 +3,9 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/streadway/amqp"
+	"k8s.io/klog/v2"
 )
 
 type JMSAMQPQueue struct {
@@ -30,6 +30,8 @@ func NewJMSAMQPQueue(amqpURI, queueName, exchangeName, topic string) *JMSAMQPQue
 
 func (jaq *JMSAMQPQueue) Init() error {
 	var err error
+	klog.V(2).Infof("Initializing jms queue %s on exchange using routing key %s on provided amqp server", jaq.queueName,jaq.exchangeName, jaq.topic)
+	klog.V(3).Infof("Connecting to amqp server %s", jaq.url)
 	jaq.conn, err = amqp.Dial(jaq.url)
 	if err != nil {
 		return fmt.Errorf("failed to dail aqmp server %w", err)
@@ -57,8 +59,10 @@ func (jaq *JMSAMQPQueue) Publish(data interface{}) error {
 	var err error
 	datas, err := json.Marshal(data)
 	if err != nil {
+		klog.V(4).Infof("failed to marshal data %#v", data)
 		return fmt.Errorf("failed to marshal struct %w", err)
 	}
+	klog.V(2).Infof("publishing data to jms send queue")
 	publishing := amqp.Publishing{
 		Headers:         amqp.Table{},
 		ContentType:     "text/plain",
@@ -78,6 +82,7 @@ func (jaq *JMSAMQPQueue) Publish(data interface{}) error {
 }
 
 func (jaq *JMSAMQPQueue) Shutdown() error {
+	klog.V(2).Infof("Shutting down jms queue")
 	if err := jaq.achan.Close(); err != nil {
 		return fmt.Errorf("failed to close channel %w", err)
 	}

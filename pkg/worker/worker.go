@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/klog/v2"
 	"path/filepath"
 	"strings"
 
@@ -69,17 +70,21 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
 	}
+	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
+	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
 	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.envVars, w.redact)
 	return w
 }
 
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
 func (w *Worker) cleanupOldBuilds() error {
+	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
 	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
 		for k, v := range params {
 			if k == w.cimsgenv {
 				//v is the cimsg of this job
+				klog.V(3).Infof("parsing ci message for build being looked at")
 				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
 				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch {
@@ -98,6 +103,7 @@ func (w *Worker) cleanupOldBuilds() error {
 //initQueues initializes rabbitmq queues used by worker. Returns error in case of fail
 func (w *Worker) initQueues() error {
 	if w.rcvq != nil {
+		klog.V(2).Infof("initialising queues for worker")
 		err := w.rcvq.Init()
 		if err != nil {
 			return fmt.Errorf("failed to initialize rcv queue %w", err)
@@ -109,6 +115,7 @@ func (w *Worker) initQueues() error {
 //sendBuildInfo sends information about the build. Returns error in case of fail
 func (w *Worker) sendBuildInfo() error {
 	if w.rcvq != nil {
+		klog.V(2).Infof("publishing build information on rcv queue")
 		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
 	}
 	return nil
@@ -147,6 +154,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	ctags := ex.GetTags()
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
+		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
 		if err != nil {
 			return false, fmt.Errorf("failed to initialize executor %w", err)
@@ -198,6 +206,8 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 		var status bool
 		var err error
 		if w.gitUser != ""  && w.gitEmail != "" {
+			klog.V(2).Infof("configuring git user and git email")
+			klog.V(3).Infof("user %s with email %s", w.gitUser, w.gitEmail)
 			status, err = w.runCommand(true, ex, repoDir, []string{"git", "config", "user.name", fmt.Sprintf("\"%s\"", w.gitUser)})
 			if err != nil {
 				return false, fmt.Errorf("failed to set git user %w", err)
@@ -214,6 +224,7 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool, error) {
 	var err error
 	var chkout string
+	klog.V(2).Infof("setting up tests")
 	//Remove any existing workdir of same name, ussually due to termination of jobs
 	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, })
 	if err != nil {
@@ -224,6 +235,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to create workdir %w", err)
 	}
+	klog.V(2).Infof("cloning repo and checking out the target")
 	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
 	if err != nil {
 		return false, fmt.Errorf("git clone failed %w", err)
@@ -233,10 +245,13 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		return false, fmt.Errorf("failed to setup git %w", err)
 	}
 	if w.cimsg.Kind == messages.RequestTypePR {
+		klog.V(2).Infof("checking out PR and merging it with the main branch")
+		klog.V(3).Infof("PR %s and main branch %s", w.cimsg.Target, w.cimsg.MainBranch)
 		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
-		status, err = w.runCommand(status, ex, repoDir, []string{"git", "fetch", "origin", fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)})
+		pulltgt := fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)
+		status, err = w.runCommand(status, ex, repoDir, []string{"git", "fetch", "-v", "origin", pulltgt})
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch pr %w", err)
+			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in repo %s %w", w.cimsg.Target, w.cimsg.RepoURL, err)
 		}
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", w.cimsg.MainBranch})
 		if err != nil {
@@ -247,6 +262,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 			return false, fmt.Errorf("failed to fast forward merge %w", err)
 		}
 	} else if w.cimsg.Kind == messages.RequestTypeBranch {
+		klog.V(2).Infof("checkout out branch")
 		chkout = w.cimsg.Target
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
@@ -254,6 +270,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 	} else if w.cimsg.Kind == messages.RequestTypeTag {
+		klog.V(2).Infof("checking out git tag")
 		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
@@ -271,16 +288,19 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 	var err error
 	if oldstatus {
 		status := true
-
+		klog.V(2).Infof("setting up test command")
 		//1 Setup the runCmd based on if setup script and run script
 		var runCmd string
 		if w.cimsg.SetupScript != "" {
+			klog.Infof("setup script detected, adding to command")
 			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, " && ")
 		}
+		klog.V(2).Infof("adding run script to command")
 		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
 		runCmd = fmt.Sprintf("\"%s\"", runCmd)
 		//2 Download runscript, if provided
 		if w.cimsg.RunScriptURL != "" {
+			klog.V(2).Infof("downloading run script for a url")
 			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL})
 			if err != nil {
 				return false, fmt.Errorf("failed to download run script")
@@ -301,6 +321,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 //tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
 //if oldsuccess is false, then this is skipped
 func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir string) (bool, error) {
+	klog.V(2).Infof("tearing down test env")
 	if oldsuccess {
 		status, err := w.runCommand(oldsuccess, ex, "", []string{"rm", "-rf", workDir})
 		if err != nil {
@@ -320,12 +341,15 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
 	repoDir := filepath.Join(workDir, w.repoDir)
 	if nd != nil {
+		klog.V(2).Infof("no node specified, creating LocalExecutor")
 		ex, err = executor.NewNodeSSHExecutor(nd)
 		if err != nil {
 			return false, fmt.Errorf("failed to setup ssh executor %w", err)
 		}
 		w.printAndStreamInfo(ex.GetTags(), fmt.Sprintf("running tests on node %s via ssh", nd.Name))
 	} else {
+		klog.V(2).Infof("node specified, creating node executor")
+		klog.V(4).Infof("node information looks like %#v", nd)
 		ex = executor.NewLocalExecutor()
 		w.printAndStreamInfo(ex.GetTags(), "running tests locally")
 	}
@@ -350,6 +374,8 @@ func (w *Worker) run() (bool, error) {
 	status := true
 	var err error
 	if w.sshNodes != nil {
+		klog.V(2).Infof("found ssh nodes, iterating over the list")
+		klog.V(4).Infof("ssh nodes looks like %#v", w.sshNodes)
 		for _, nd := range w.sshNodes.Nodes {
 			success, err := w.test(&nd)
 			if err != nil {
@@ -360,6 +386,7 @@ func (w *Worker) run() (bool, error) {
 			}
 		}
 	} else {
+		klog.V(2).Infof("running test locally on slave")
 		status, err = w.test(nil)
 		if err != nil {
 			return false, err
@@ -370,13 +397,16 @@ func (w *Worker) run() (bool, error) {
 
 //sendStatusMessage sends the status message over queue, based on success value
 func (w *Worker) sendStatusMessage(success bool) error {
+	sm := messages.NewStatusMessage(w.jenkinsBuild, success)
+	klog.V(2).Infof("sending status message")
 	if w.rcvq != nil {
-		return w.rcvq.Publish(false, messages.NewStatusMessage(w.jenkinsBuild, success))
+		return w.rcvq.Publish(false, sm)
 	}
 	return nil
 }
 
 func (w *Worker) sendFinalizeMessage() error {
+	klog.V(2).Infof("sending final message")
 	if w.rcvq != nil && w.final {
 		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild))
 	}

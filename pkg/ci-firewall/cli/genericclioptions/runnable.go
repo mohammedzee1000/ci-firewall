@@ -1,6 +1,7 @@
 package genericclioptions
 
 import (
+	"k8s.io/klog/v2"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ type Runnable interface {
 }
 
 func LogErrorAndExit(err error, ctx string) {
+	klog.Flush()
 	if err != nil {
 		log.Fatalf("%s: %s", ctx, err)
 	}

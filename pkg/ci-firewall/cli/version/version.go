@@ -2,7 +2,6 @@ package version
 
 import (
 	"fmt"
-
 	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/genericclioptions"
 	"github.com/mohammedzee1000/ci-firewall/pkg/version"
 	"github.com/spf13/cobra"

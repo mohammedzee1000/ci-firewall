@@ -3,6 +3,7 @@ package requestor
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog/v2"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
@@ -59,7 +60,10 @@ func (r *Requestor) initQueus() error {
 
 func (r *Requestor) sendBuildRequest() error {
 	var err error
-	err = r.sendq.Publish(messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch))
+	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch)
+	klog.V(2).Infof("sending remote build request")
+	klog.V(4).Infof("remote build request: %#v", rbr)
+	err = r.sendq.Publish(rbr)
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}
@@ -67,9 +71,12 @@ func (r *Requestor) sendBuildRequest() error {
 }
 
 func (r *Requestor) consumeMessages() error {
+	klog.V(2).Infof("listening on rcv queue %s for messages from worker")
 	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
 		for d := range deliveries {
+			klog.V(2).Infof("received message from worker")
+			klog.V(4).Infof("Raw message %#v", d.Body)
 			m := &messages.Message{}
 			err1 := json.Unmarshal(d.Body, m)
 			if err1 != nil {
@@ -77,8 +84,10 @@ func (r *Requestor) consumeMessages() error {
 				return
 			}
 			if r.jenkinsBuild == -1 && m.IsBuild() {
+				klog.V(2).Infof("received build message")
 				bm := messages.NewBuildMessage(-1)
 				err1 = json.Unmarshal(d.Body, bm)
+				klog.V(4).Infof("received build message %#v", bm)
 				if err1 != nil {
 					done <- fmt.Errorf("failed to unmarshal as build message %w", err1)
 					return
@@ -87,23 +96,31 @@ func (r *Requestor) consumeMessages() error {
 				fmt.Printf("Following jenkins build %d\n", r.jenkinsBuild)
 			} else if r.jenkinsBuild == m.Build {
 				if m.ISLog() {
+					klog.V(2).Infof("received log message")
 					lm := messages.NewLogsMessage(-1, "")
 					err1 = json.Unmarshal(d.Body, lm)
 					if err1 != nil {
 						done <- fmt.Errorf("failed to unmarshal as logs message %w", err1)
 						return
 					}
+					klog.V(4).Infof("log message %#v", lm)
 					fmt.Println(lm.Logs)
 				} else if m.IsStatus() {
+					klog.V(2).Infof("received status message")
 					sm := messages.NewStatusMessage(-1, false)
 					err1 = json.Unmarshal(d.Body, sm)
 					if err1 != nil {
 						done <- fmt.Errorf("failed to unmarshal as status message %w", err1)
 					}
+					klog.V(4).Infof("status message %#v", sm)
 					if success {
+						klog.V(2).Infof("Updating success status")
 						success = sm.Success
+					} else {
+						klog.V(2).Infof("Skipping update to status as its already false")
 					}
 				} else if m.IsFinal() {
+					klog.V(2).Infof("received final message")
 					if success {
 						done <- nil
 					} else {
