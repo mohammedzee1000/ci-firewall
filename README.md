@@ -20,7 +20,7 @@ Used to run CI behind firewalls and collect result stream it to a public place
 - Installing [rabbitmq](https://www.rabbitmq.com/download.html)
 - Install rabbitmq_management plugin
 - Create admin user
-- Installing JMS Plugin
+- Installing JMS Plugin for rabbitmq
 
 #### rabbitmq_management
 
