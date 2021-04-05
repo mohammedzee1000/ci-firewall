@@ -38,6 +38,10 @@ func (m *Message) IsFinal() bool {
 	return m.Kind == KindFinal
 }
 
+func (m *Message) IsCancel() bool {
+	return m.Kind == KindCancel
+}
+
 type BuildMessage struct {
 	*Message
 }
