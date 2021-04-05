@@ -5,6 +5,7 @@ const (
 	KindLog    = "Log"
 	KindStatus = "Status"
 	KindFinal  = "Final"
+	KindCancel = "Cancel"
 )
 
 type Message struct {
@@ -78,5 +79,15 @@ type FinalMessage struct {
 func NewFinalMessage(build int, jenkinsproject string) *FinalMessage {
 	return &FinalMessage{
 		Message: newMessage(KindFinal, build, jenkinsproject),
+	}
+}
+
+type CancelMessage struct {
+	*Message
+}
+
+func NewCancelMessage(build int, jenkinsproject string) *CancelMessage  {
+	return &CancelMessage{
+		Message: newMessage(KindCancel, build, jenkinsproject),
 	}
 }
