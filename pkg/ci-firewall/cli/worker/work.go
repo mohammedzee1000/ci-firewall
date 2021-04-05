@@ -69,7 +69,7 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	if cimsgdata == "" {
 		return fmt.Errorf("the env content seems empty, did you provide the right value?")
 	}
-	wo.cimsg = messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
+	wo.cimsg = messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
 	err = json.Unmarshal([]byte(cimsgdata), wo.cimsg)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal CI message %w", err)

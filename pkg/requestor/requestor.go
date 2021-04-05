@@ -23,9 +23,10 @@ type Requestor struct {
 	runScriptURL     string
 	mainBranch       string
 	done             chan error
+	jenkinsProject   string
 }
 
-func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch string) *Requestor {
+func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch, jenkinsJobName string) *Requestor {
 	r := &Requestor{
 		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
 		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
@@ -39,6 +40,7 @@ func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target
 		runScriptURL:     runScriptURL,
 		mainBranch:       mainBranch,
 		done:             make(chan error),
+		jenkinsProject:   jenkinsJobName,
 	}
 	return r
 }
@@ -60,7 +62,7 @@ func (r *Requestor) initQueus() error {
 
 func (r *Requestor) sendBuildRequest() error {
 	var err error
-	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch)
+	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
 	klog.V(2).Infof("sending remote build request")
 	klog.V(4).Infof("remote build request: %#v", rbr)
 	err = r.sendq.Publish(rbr)
@@ -85,7 +87,7 @@ func (r *Requestor) consumeMessages() error {
 			}
 			if r.jenkinsBuild == -1 && m.IsBuild() {
 				klog.V(2).Infof("received build message")
-				bm := messages.NewBuildMessage(-1)
+				bm := messages.NewBuildMessage(-1,"")
 				err1 = json.Unmarshal(d.Body, bm)
 				klog.V(4).Infof("received build message %#v", bm)
 				if err1 != nil {
@@ -97,7 +99,7 @@ func (r *Requestor) consumeMessages() error {
 			} else if r.jenkinsBuild == m.Build {
 				if m.ISLog() {
 					klog.V(2).Infof("received log message")
-					lm := messages.NewLogsMessage(-1, "")
+					lm := messages.NewLogsMessage(-1, "", "")
 					err1 = json.Unmarshal(d.Body, lm)
 					if err1 != nil {
 						done <- fmt.Errorf("failed to unmarshal as logs message %w", err1)
@@ -107,7 +109,7 @@ func (r *Requestor) consumeMessages() error {
 					fmt.Println(lm.Logs)
 				} else if m.IsStatus() {
 					klog.V(2).Infof("received status message")
-					sm := messages.NewStatusMessage(-1, false)
+					sm := messages.NewStatusMessage(-1, false, "")
 					err1 = json.Unmarshal(d.Body, sm)
 					if err1 != nil {
 						done <- fmt.Errorf("failed to unmarshal as status message %w", err1)

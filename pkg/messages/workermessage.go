@@ -10,12 +10,14 @@ const (
 type Message struct {
 	Kind  string `json:"Kind"`
 	Build int    `json:"Build"`
+	JenkinsProject string `json:"JenkinsProject"`
 }
 
-func newMessage(kind string, build int) *Message {
+func newMessage(kind string, build int, jeninsproject string) *Message {
 	return &Message{
-		Kind:  kind,
-		Build: build,
+		Kind:           kind,
+		Build:          build,
+		JenkinsProject: jeninsproject,
 	}
 }
 
@@ -39,9 +41,9 @@ type BuildMessage struct {
 	*Message
 }
 
-func NewBuildMessage(build int) *BuildMessage {
+func NewBuildMessage(build int, jenkinsjob string) *BuildMessage {
 	return &BuildMessage{
-		Message: newMessage(KindBuild, build),
+		Message: newMessage(KindBuild, build, jenkinsjob),
 	}
 }
 
@@ -50,9 +52,9 @@ type LogsMessage struct {
 	Logs string `json:"Logs"`
 }
 
-func NewLogsMessage(build int, logs string) *LogsMessage {
+func NewLogsMessage(build int, logs string, jenkinsproject string) *LogsMessage {
 	return &LogsMessage{
-		Message: newMessage(KindLog, build),
+		Message: newMessage(KindLog, build, jenkinsproject),
 		Logs:    logs,
 	}
 }
@@ -62,9 +64,9 @@ type StatusMessage struct {
 	Success bool `json:"Success"`
 }
 
-func NewStatusMessage(build int, success bool) *StatusMessage {
+func NewStatusMessage(build int, success bool, jenkinsproject string) *StatusMessage {
 	return &StatusMessage{
-		Message: newMessage(KindStatus, build),
+		Message: newMessage(KindStatus, build, jenkinsproject),
 		Success: success,
 	}
 }
@@ -73,8 +75,8 @@ type FinalMessage struct {
 	*Message
 }
 
-func NewFinalMessage(build int) *FinalMessage {
+func NewFinalMessage(build int, jenkinsproject string) *FinalMessage {
 	return &FinalMessage{
-		Message: newMessage(KindFinal, build),
+		Message: newMessage(KindFinal, build, jenkinsproject),
 	}
 }
