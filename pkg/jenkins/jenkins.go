@@ -22,7 +22,7 @@ func CleanupOldBuilds(url, username, password, jobName string, currentBuild int,
 	if err != nil {
 		return fmt.Errorf("failed to get job %s %w", jobName, err)
 	}
-	klog.V(2).Infof("getting builds in jenkins job job")
+	klog.V(2).Infof("getting builds in jenkins job")
 	buildids, err := job.GetAllBuildIds()
 	if err != nil {
 		return fmt.Errorf("failed to get all build ids %w", err)
