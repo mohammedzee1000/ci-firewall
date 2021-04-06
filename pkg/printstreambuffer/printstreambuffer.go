@@ -18,9 +18,10 @@ type PrintStreamBuffer struct {
 	buildno    int
 	envs       map[string]string
 	redact     bool
+	jenkinsProject string
 }
 
-func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int, envs map[string]string, redact bool) *PrintStreamBuffer {
+func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int, jenkinsProject string,envs map[string]string, redact bool) *PrintStreamBuffer {
 	return &PrintStreamBuffer{
 		q:          q,
 		bufferSize: bufsize,
@@ -28,6 +29,7 @@ func NewPrintStreamBuffer(q *queue.AMQPQueue, bufsize int, buildno int, envs map
 		buildno:    buildno,
 		envs:       envs,
 		redact:     redact,
+		jenkinsProject: jenkinsProject,
 	}
 }
 
@@ -43,7 +45,7 @@ func (psb *PrintStreamBuffer) FlushToQueue() error {
 				ipre := regexp.MustCompile(`(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}`)
 				psb.message = ipre.ReplaceAllString(psb.message, "-IP REDACTED-")
 			}
-			lm := messages.NewLogsMessage(psb.buildno, psb.message)
+			lm := messages.NewLogsMessage(psb.buildno, psb.message, psb.jenkinsProject)
 			err := psb.q.Publish(false, lm)
 			if err != nil {
 				return fmt.Errorf("failed to publish buffer to %w", err)

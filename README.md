@@ -20,7 +20,7 @@ Used to run CI behind firewalls and collect result stream it to a public place
 - Installing [rabbitmq](https://www.rabbitmq.com/download.html)
 - Install rabbitmq_management plugin
 - Create admin user
-- Installing JMS Plugin
+- Installing JMS Plugin for rabbitmq
 
 #### rabbitmq_management
 
@@ -213,5 +213,5 @@ The format of th file is as below
 This allows you to use worker in standalone mode. Note however, you will need to provide `CI_MESSAGE` yourself. See below for example.
 
 ```bash
-export CI_MESSAGE='{"repourl": "repourl", "kind": "PR", "target": "target", "setupscript": "setupscript", "runscript": "runscript", "rcvident": "rcvident", "runscripturl": "http://url", "mainbranch": "master"}'
+export CI_MESSAGE='{"repourl": "repourl", "kind": "PR", "target": "target", "setupscript": "setupscript", "runscript": "runscript", "rcvident": "rcvident", "runscripturl": "http://url", "mainbranch": "master", "jenkinsproject": "name of jenkins project to build"}'
 ```

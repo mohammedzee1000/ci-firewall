@@ -5,17 +5,20 @@ const (
 	KindLog    = "Log"
 	KindStatus = "Status"
 	KindFinal  = "Final"
+	KindCancel = "Cancel"
 )
 
 type Message struct {
 	Kind  string `json:"Kind"`
 	Build int    `json:"Build"`
+	JenkinsProject string `json:"JenkinsProject"`
 }
 
-func newMessage(kind string, build int) *Message {
+func newMessage(kind string, build int, jenkinsProject string) *Message {
 	return &Message{
-		Kind:  kind,
-		Build: build,
+		Kind:           kind,
+		Build:          build,
+		JenkinsProject: jenkinsProject,
 	}
 }
 
@@ -23,7 +26,7 @@ func (m *Message) IsBuild() bool {
 	return m.Kind == KindBuild
 }
 
-func (m *Message) ISLog() bool {
+func (m *Message) IsLog() bool {
 	return m.Kind == KindLog
 }
 
@@ -35,13 +38,17 @@ func (m *Message) IsFinal() bool {
 	return m.Kind == KindFinal
 }
 
+func (m *Message) IsCancel() bool {
+	return m.Kind == KindCancel
+}
+
 type BuildMessage struct {
 	*Message
 }
 
-func NewBuildMessage(build int) *BuildMessage {
+func NewBuildMessage(build int, jenkinsProject string) *BuildMessage {
 	return &BuildMessage{
-		Message: newMessage(KindBuild, build),
+		Message: newMessage(KindBuild, build, jenkinsProject),
 	}
 }
 
@@ -50,9 +57,9 @@ type LogsMessage struct {
 	Logs string `json:"Logs"`
 }
 
-func NewLogsMessage(build int, logs string) *LogsMessage {
+func NewLogsMessage(build int, logs string, jenkinsProject string) *LogsMessage {
 	return &LogsMessage{
-		Message: newMessage(KindLog, build),
+		Message: newMessage(KindLog, build, jenkinsProject),
 		Logs:    logs,
 	}
 }
@@ -62,9 +69,9 @@ type StatusMessage struct {
 	Success bool `json:"Success"`
 }
 
-func NewStatusMessage(build int, success bool) *StatusMessage {
+func NewStatusMessage(build int, success bool, jenkinsProject string) *StatusMessage {
 	return &StatusMessage{
-		Message: newMessage(KindStatus, build),
+		Message: newMessage(KindStatus, build, jenkinsProject),
 		Success: success,
 	}
 }
@@ -73,8 +80,18 @@ type FinalMessage struct {
 	*Message
 }
 
-func NewFinalMessage(build int) *FinalMessage {
+func NewFinalMessage(build int, jenkinsProject string) *FinalMessage {
 	return &FinalMessage{
-		Message: newMessage(KindFinal, build),
+		Message: newMessage(KindFinal, build, jenkinsProject),
+	}
+}
+
+type CancelMessage struct {
+	*Message
+}
+
+func NewCancelMessage(build int, jenkinsProject string) *CancelMessage  {
+	return &CancelMessage{
+		Message: newMessage(KindCancel, build, jenkinsProject),
 	}
 }

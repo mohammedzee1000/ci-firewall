@@ -28,7 +28,7 @@ type RequestOptions struct {
 	runScript        string
 	setupScript      string
 	rcvIdent         string
-	jenkinsproject   string
+	jenkinsProject   string
 	runScriptURL     string
 	mainBranch       string
 	timeout          time.Duration
@@ -45,7 +45,7 @@ func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []strin
 		ro.kind = messages.RequestTypePR
 	}
 	if ro.rcvIdent == "" {
-		ro.rcvIdent = fmt.Sprintf("amqp.ci.rcv.%s.%s.%s", ro.jenkinsproject, ro.kind, ro.target)
+		ro.rcvIdent = fmt.Sprintf("amqp.ci.rcv.%s.%s.%s", ro.jenkinsProject, ro.kind, ro.target)
 	}
 	if ro.lazy {
 		ro.rcvIdent = fmt.Sprintf("%s.lazy", ro.rcvIdent)
@@ -100,6 +100,7 @@ func (ro *RequestOptions) Run() (err error) {
 		ro.rcvIdent,
 		ro.runScriptURL,
 		ro.mainBranch,
+		ro.jenkinsProject,
 	)
 	klog.V(4).Infof("requester looks like %#v", ro.requestor)
 	err = ro.requestor.Run()
@@ -140,7 +141,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.amqpURI, "amqpuri", os.Getenv("AMQP_URI"), "the url of amqp server")
-	cmd.Flags().StringVar(&o.jenkinsproject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of target jenkins project. Required for ident purposes only")
+	cmd.Flags().StringVar(&o.jenkinsProject, "jenkinsproject", jenkins.GetJenkinsJob(), "the name of target jenkins project. Required for ident purposes only")
 	cmd.Flags().StringVar(&o.sendQName, "sendqueue", "amqp.ci.queue.send", "the name of the send queue")
 	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "amqp.ci.exchange.send", "the name of the exchange tp use for send")
 	cmd.Flags().StringVar(&o.sendTopic, "sendtopic", "amqp.ci.topic.send", "the name of the send topic")

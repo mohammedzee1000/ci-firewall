@@ -69,7 +69,7 @@ func (wo *WorkOptions) Complete(name string, cmd *cobra.Command, args []string) 
 	if cimsgdata == "" {
 		return fmt.Errorf("the env content seems empty, did you provide the right value?")
 	}
-	wo.cimsg = messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
+	wo.cimsg = messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
 	err = json.Unmarshal([]byte(cimsgdata), wo.cimsg)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal CI message %w", err)
@@ -123,6 +123,9 @@ func (wo *WorkOptions) Validate() (err error) {
 	}
 	if wo.cimsg.Kind != messages.RequestTypePR && wo.cimsg.Kind != messages.RequestTypeBranch && wo.cimsg.Kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind must be one of these 3 %s|%s|%s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
+	}
+	if wo.cimsg.JenkinsProject != wo.jenkinsProject {
+		return fmt.Errorf("jenkins project in ci message does not match name of current project, want %s, got %s", wo.jenkinsProject, wo.cimsg.JenkinsProject)
 	}
 	if len(wo.sshNodesFiles) > 0 {
 		for _, f := range wo.sshNodesFiles {

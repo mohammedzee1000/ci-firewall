@@ -7,6 +7,7 @@ import (
 	"k8s.io/klog/v2"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -39,6 +40,7 @@ type Worker struct {
 	redact          bool
 	gitUser         string
 	gitEmail        string
+	filterfunc      func(params map[string]string) bool
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -73,27 +75,43 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
 	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
-	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.envVars, w.redact)
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.jenkinsProject,w.envVars, w.redact)
 	return w
 }
 
-// cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
-func (w *Worker) cleanupOldBuilds() error {
-	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
-	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
+func (w *Worker) initFilterFunc()  {
+	w.filterfunc = func(params map[string]string) bool {
 		for k, v := range params {
 			if k == w.cimsgenv {
 				//v is the cimsg of this job
 				klog.V(3).Infof("parsing ci message for build being looked at")
-				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "")
+				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch {
+				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch && jcim.JenkinsProject == w.cimsg.JenkinsProject {
 					return true
 				}
 			}
 		}
 		return false
-	})
+	}
+}
+
+func (w *Worker) checkForNewerBuilds() error {
+	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
+	if err != nil {
+		return fmt.Errorf("failed to check for newer builds %w", err)
+	}
+	time.Sleep(20*time.Second)
+	if exists {
+		return fmt.Errorf("found newer build in queue, cancelling current")
+	}
+	return nil
+}
+
+// cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
+func (w *Worker) cleanupOldBuilds() error {
+	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
+	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup old builds %w", err)
 	}
@@ -112,11 +130,19 @@ func (w *Worker) initQueues() error {
 	return nil
 }
 
+func (w *Worker) sendCancelMessage() error {
+	if w.rcvq != nil {
+		klog.V(2).Infof("sending cancel message in order to ensure requester stops following any older builds")
+		return w.rcvq.Publish(false, messages.NewCancelMessage(w.jenkinsBuild, w.jenkinsProject))
+	}
+	return nil
+}
+
 //sendBuildInfo sends information about the build. Returns error in case of fail
 func (w *Worker) sendBuildInfo() error {
 	if w.rcvq != nil {
 		klog.V(2).Infof("publishing build information on rcv queue")
-		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild))
+		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
@@ -397,7 +423,7 @@ func (w *Worker) run() (bool, error) {
 
 //sendStatusMessage sends the status message over queue, based on success value
 func (w *Worker) sendStatusMessage(success bool) error {
-	sm := messages.NewStatusMessage(w.jenkinsBuild, success)
+	sm := messages.NewStatusMessage(w.jenkinsBuild, success, w.jenkinsProject)
 	klog.V(2).Infof("sending status message")
 	if w.rcvq != nil {
 		return w.rcvq.Publish(false, sm)
@@ -408,7 +434,7 @@ func (w *Worker) sendStatusMessage(success bool) error {
 func (w *Worker) sendFinalizeMessage() error {
 	klog.V(2).Infof("sending final message")
 	if w.rcvq != nil && w.final {
-		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild))
+		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
@@ -420,7 +446,16 @@ func (w *Worker) printBuildInfo() {
 //Run runs the worker and returns error if any.
 func (w *Worker) Run() (bool, error) {
 	var success bool
-	if err := w.cleanupOldBuilds(); err != nil {
+	w.initFilterFunc()
+	err := w.checkForNewerBuilds()
+	if err != nil {
+		return false, err
+	}
+	err = w.sendCancelMessage()
+	if err != nil {
+		return false, fmt.Errorf("failed to send cancel message %w", err)
+	}
+	if err = w.cleanupOldBuilds(); err != nil {
 		return false, err
 	}
 	w.printBuildInfo()
@@ -430,7 +465,7 @@ func (w *Worker) Run() (bool, error) {
 	if err := w.sendBuildInfo(); err != nil {
 		return false, fmt.Errorf("failed to send build info %w", err)
 	}
-	success, err := w.run()
+	success, err = w.run()
 	if err != nil {
 		return false, fmt.Errorf("failed to run tests %w", err)
 	}
