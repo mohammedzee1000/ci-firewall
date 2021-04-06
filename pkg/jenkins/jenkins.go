@@ -56,7 +56,7 @@ func CleanupOldBuilds(url, username, password, jobName string, currentBuild int,
 	return nil
 }
 
-func NewerBuildsExist(url, username, password, jobName string, currentBuild int) (bool, error) {
+func NewerBuildsExist(url, username, password, jobName string, currentBuild int, filter func(params map[string]string) bool) (bool, error) {
 	klog.V(2).Infof("initializing jenkins client")
 	klog.V(4).Infof("jenkins url: %s, username: %s, password %s", url, username, password)
 	jenkins, err := gojenkins.CreateJenkins(nil, url, username, password).Init()
@@ -69,15 +69,29 @@ func NewerBuildsExist(url, username, password, jobName string, currentBuild int)
 	if err != nil {
 		return false, fmt.Errorf("failed to get job %s %w", jobName, err)
 	}
-	klog.V(2).Infof("getting builds in jenkins job job")
+	klog.V(2).Infof("getting builds in jenkins job")
 	buildids, err := job.GetAllBuildIds()
 	if err != nil {
 		return false, fmt.Errorf("failed to get all build ids %w", err)
 	}
 	for _, bid := range buildids {
 		if bid.Number > int64(currentBuild) {
-			klog.V(2).Infof("found newer build in jenkins queue")
-			return true, nil
+			klog.V(2).Infof("found build number larger than current, checking if its paramers match")
+			klog.V(4).Infof("build number %d", bid.Number)
+			b, err := job.GetBuild(bid.Number)
+			if err != nil {
+				return false, fmt.Errorf("failed to fetch build with %w", err)
+			}
+			prms := make(map[string]string)
+			jparams := b.GetParameters()
+			klog.V(4).Infof("job parameters look like %#v", jparams)
+			for _, jpr := range jparams {
+				prms[jpr.Name] = jpr.Value
+			}
+			if filter(prms) {
+				klog.V(2).Infof("found newer build in jenkins queue whose parameters match current jobs")
+				return true, nil
+			}
 		}
 	}
 	klog.V(2).Infof("no newer builds found")

@@ -40,6 +40,7 @@ type Worker struct {
 	redact          bool
 	gitUser         string
 	gitEmail        string
+	filterfunc      func(params map[string]string) bool
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -78,8 +79,25 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	return w
 }
 
+func (w *Worker) initFilterFunc()  {
+	w.filterfunc = func(params map[string]string) bool {
+		for k, v := range params {
+			if k == w.cimsgenv {
+				//v is the cimsg of this job
+				klog.V(3).Infof("parsing ci message for build being looked at")
+				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
+				json.Unmarshal([]byte(v), jcim)
+				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch && jcim.JenkinsProject == w.cimsg.JenkinsProject {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 func (w *Worker) checkForNewerBuilds() error {
-	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild)
+	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
 	if err != nil {
 		return fmt.Errorf("failed to check for newer builds %w", err)
 	}
@@ -93,20 +111,7 @@ func (w *Worker) checkForNewerBuilds() error {
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
 func (w *Worker) cleanupOldBuilds() error {
 	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
-	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, func(params map[string]string) bool {
-		for k, v := range params {
-			if k == w.cimsgenv {
-				//v is the cimsg of this job
-				klog.V(3).Infof("parsing ci message for build being looked at")
-				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
-				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch && jcim.JenkinsProject == w.cimsg.JenkinsProject {
-					return true
-				}
-			}
-		}
-		return false
-	})
+	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup old builds %w", err)
 	}
@@ -441,6 +446,7 @@ func (w *Worker) printBuildInfo() {
 //Run runs the worker and returns error if any.
 func (w *Worker) Run() (bool, error) {
 	var success bool
+	w.initFilterFunc()
 	err := w.checkForNewerBuilds()
 	if err != nil {
 		return false, err
