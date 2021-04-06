@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"k8s.io/klog/v2"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/executor"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -66,8 +67,8 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 		stripansicolor:  stripANSIColor,
 		redact:          redact,
 		cimsgenv:        cimsgenv,
-		gitUser: gitUser,
-		gitEmail: gitEmail,
+		gitUser:         gitUser,
+		gitEmail:        gitEmail,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -231,7 +232,7 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 	if oldstatus {
 		var status bool
 		var err error
-		if w.gitUser != ""  && w.gitEmail != "" {
+		if w.gitUser != "" && w.gitEmail != "" {
 			klog.V(2).Infof("configuring git user and git email")
 			klog.V(3).Infof("user %s with email %s", w.gitUser, w.gitEmail)
 			status, err = w.runCommand(true, ex, repoDir, []string{"git", "config", "user.name", fmt.Sprintf("\"%s\"", w.gitUser)})
@@ -252,7 +253,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	var chkout string
 	klog.V(2).Infof("setting up tests")
 	//Remove any existing workdir of same name, ussually due to termination of jobs
-	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir, })
+	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
 	if err != nil {
 		w.handleCommandError(ex.GetTags(), err)
 	}
@@ -275,17 +276,22 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		klog.V(3).Infof("PR %s and main branch %s", w.cimsg.Target, w.cimsg.MainBranch)
 		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
 		pulltgt := fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)
-		status, err = w.runCommand(status, ex, repoDir, []string{"git", "fetch", "-v", "origin", pulltgt})
+		status1, err := w.runCommand(status, ex, repoDir, []string{"git", "fetch", "-v", "origin", pulltgt})
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in repo %s %w", w.cimsg.Target, w.cimsg.RepoURL, err)
 		}
-		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", w.cimsg.MainBranch})
+		if !status1 {
+			fmt.Printf("couldn't find remote ref for pr no %s, running tests on main branch", w.cimsg.Target)
+		}
+		status, err = w.runCommand(true, ex, repoDir, []string{"git", "checkout", w.cimsg.MainBranch})
 		if err != nil {
 			return false, fmt.Errorf("failed to switch to main branch %w", err)
 		}
-		status, err = w.runCommand(status, ex, repoDir, []string{"git", "merge", chkout, "--no-edit"})
-		if err != nil {
-			return false, fmt.Errorf("failed to fast forward merge %w", err)
+		if status1 {
+			status, err = w.runCommand(status, ex, repoDir, []string{"git", "merge", chkout, "--no-edit"})
+			if err != nil {
+				return false, fmt.Errorf("failed to fast forward merge %w", err)
+			}
 		}
 	} else if w.cimsg.Kind == messages.RequestTypeBranch {
 		klog.V(2).Infof("checkout out branch")
