@@ -42,7 +42,7 @@ func (jaq *JMSAMQPQueue) Init() error {
 	if err != nil {
 		return fmt.Errorf("failed to declare queue %w", err)
 	}
-	err = jaq.achan.ExchangeDeclare(jaq.exchangeName, amqp.ExchangeFanout, true, false, false, false, nil)
+	err = jaq.achan.ExchangeDeclare(jaq.exchangeName, amqp.ExchangeDirect, true, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to declare change %w", err)
 	}
