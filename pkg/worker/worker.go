@@ -457,16 +457,16 @@ func (w *Worker) Run() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = w.sendCancelMessage()
-	if err != nil {
-		return false, fmt.Errorf("failed to send cancel message %w", err)
-	}
 	if err = w.cleanupOldBuilds(); err != nil {
 		return false, err
 	}
 	w.printBuildInfo()
 	if err := w.initQueues(); err != nil {
 		return false, err
+	}
+	err = w.sendCancelMessage()
+	if err != nil {
+		return false, fmt.Errorf("failed to send cancel message %w", err)
 	}
 	if err := w.sendBuildInfo(); err != nil {
 		return false, fmt.Errorf("failed to send build info %w", err)
