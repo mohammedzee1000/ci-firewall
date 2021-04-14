@@ -23,25 +23,27 @@ const scriptIdentity = "SCRIPT_IDENTITY"
 
 //Worker works on a request for test build
 type Worker struct {
-	rcvq            *queue.AMQPQueue
-	jenkinsProject  string
-	jenkinsBuild    int
-	jenkinsURL      string
-	jenkinsUser     string
-	jenkinsPassword string
-	cimsgenv        string
-	cimsg           *messages.RemoteBuildRequestMessage
-	envVars         map[string]string
-	repoDir         string
-	sshNodes        *node.NodeList
-	psb             *printstreambuffer.PrintStreamBuffer
-	final           bool
-	tags            []string
-	stripansicolor  bool
-	redact          bool
-	gitUser         string
-	gitEmail        string
-	filterfunc      func(params map[string]string) bool
+	rcvq             *queue.AMQPQueue
+	jenkinsProject   string
+	jenkinsBuild     int
+	jenkinsURL       string
+	jenkinsUser      string
+	jenkinsPassword  string
+	cimsgenv         string
+	cimsg            *messages.RemoteBuildRequestMessage
+	envVars          map[string]string
+	repoDir          string
+	sshNodes         *node.NodeList
+	psb              *printstreambuffer.PrintStreamBuffer
+	final            bool
+	tags             []string
+	stripansicolor   bool
+	redact           bool
+	gitUser          string
+	gitEmail         string
+	filterfunc       func(params map[string]string) bool
+	retryLoopCount   int
+	retryLoopBackOff time.Duration
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -50,25 +52,27 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string, retryLoopCount int, retryLoopBackoff time.Duration) *Worker {
 	w := &Worker{
-		rcvq:            nil,
-		cimsg:           cimsg,
-		jenkinsProject:  jenkinsProject,
-		jenkinsBuild:    jenkinsBuild,
-		jenkinsURL:      jenkinsURL,
-		jenkinsUser:     jenkinsUser,
-		jenkinsPassword: jenkinsPassword,
-		envVars:         envVars,
-		repoDir:         "repo",
-		sshNodes:        sshNodes,
-		final:           final,
-		tags:            tags,
-		stripansicolor:  stripANSIColor,
-		redact:          redact,
-		cimsgenv:        cimsgenv,
-		gitUser:         gitUser,
-		gitEmail:        gitEmail,
+		rcvq:             nil,
+		cimsg:            cimsg,
+		jenkinsProject:   jenkinsProject,
+		jenkinsBuild:     jenkinsBuild,
+		jenkinsURL:       jenkinsURL,
+		jenkinsUser:      jenkinsUser,
+		jenkinsPassword:  jenkinsPassword,
+		envVars:          envVars,
+		repoDir:          "repo",
+		sshNodes:         sshNodes,
+		final:            final,
+		tags:             tags,
+		stripansicolor:   stripANSIColor,
+		redact:           redact,
+		cimsgenv:         cimsgenv,
+		gitUser:          gitUser,
+		gitEmail:         gitEmail,
+		retryLoopCount:   retryLoopCount,
+		retryLoopBackOff: retryLoopBackoff,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -76,11 +80,11 @@ func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject
 	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
 	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
-	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.jenkinsProject,w.envVars, w.redact)
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.jenkinsProject, w.envVars, w.redact)
 	return w
 }
 
-func (w *Worker) initFilterFunc()  {
+func (w *Worker) initFilterFunc() {
 	w.filterfunc = func(params map[string]string) bool {
 		for k, v := range params {
 			if k == w.cimsgenv {
@@ -102,7 +106,7 @@ func (w *Worker) checkForNewerBuilds() error {
 	if err != nil {
 		return fmt.Errorf("failed to check for newer builds %w", err)
 	}
-	time.Sleep(20*time.Second)
+	time.Sleep(20 * time.Second)
 	if exists {
 		return fmt.Errorf("found newer build in queue, cancelling current")
 	}
@@ -171,6 +175,14 @@ func (w *Worker) printAndStreamInfo(tags []string, info string) error {
 	return w.psb.Print(toprint, true, w.stripansicolor)
 }
 
+func (w *Worker) printAndStreamErrors(tags []string, errlist []error) error {
+	errMsg := "List of errors below:\n\n"
+	for _, e := range errlist {
+		errMsg = fmt.Sprintf(" - %s\n", e.Error())
+	}
+	return w.psb.Print(errMsg, true, w.stripansicolor)
+}
+
 //printAndStreamCommand print and streams a command. Returns error in case of fail
 func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true, w.stripansicolor)
@@ -179,50 +191,78 @@ func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
 	ctags := ex.GetTags()
+	var errList []error
+	success := true
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
-		rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
-		if err != nil {
-			return false, fmt.Errorf("failed to initialize executor %w", err)
-		}
-		defer ex.Close()
-		done := make(chan error)
-		go func(done chan error) {
-			for {
-				data, err := rdr.ReadString('\n')
-				if err != nil {
-					if err != io.EOF {
-						done <- fmt.Errorf("error while reading from buffer %w", err)
-					}
-					if len(data) > 0 {
-						w.printAndStreamLog(ctags, data)
-					}
-					break
+		retryBackOff := w.retryLoopBackOff
+		//keep retrying for ever incrementing retry (internal break conditions present)
+		for retry := 1; ; retry++ {
+			// if retry > 1 then we probably failed the last attempt
+			if retry > 1 {
+				success = false
+				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
+				// we want to do retry loop backoff for all but the last attempt
+				if retry < w.retryLoopCount {
+					retryBackOff = retryBackOff + w.retryLoopBackOff
+					w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
+					time.Sleep(retryBackOff)
 				}
-				w.printAndStreamLog(ctags, data)
 			}
-			done <- nil
-		}(done)
-		err = ex.Start()
-		if err != nil {
-			w.handleCommandError(ctags, fmt.Errorf("failed to start executing command %w", err))
-			return false, nil
+			// if the last attempt was done and was not successful, then we have failed
+			// Note: this handles case where retry loop count was given as 1 as well as 1 >= 1 but success is true (see initialization above)
+			if retry >= w.retryLoopCount && !success {
+				w.printAndStreamErrors(ctags, errList)
+				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
+			}
+			w.printAndStreamInfo(ctags, fmt.Sprintf("Attempt %d", retry))
+			rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
+			if err != nil {
+				errList = append(errList, fmt.Errorf("failed to initialize executor %w", err))
+				continue
+			}
+			defer ex.Close()
+			done := make(chan error)
+			go func(done chan error) {
+				for {
+					data, err := rdr.ReadString('\n')
+					if err != nil {
+						if err != io.EOF {
+							done <- fmt.Errorf("error while reading from buffer %w", err)
+						}
+						if len(data) > 0 {
+							w.printAndStreamLog(ctags, data)
+						}
+						break
+					}
+					w.printAndStreamLog(ctags, data)
+				}
+				done <- nil
+			}(done)
+			// if start or wait error out, then we record the error and move on to next attempt
+			err = ex.Start()
+			if err != nil {
+				errList = append(errList, fmt.Errorf("failed to start executing command %w", err))
+				continue
+			}
+			err = <-done
+			if err != nil {
+				errList = append(errList, err)
+				continue
+			}
+			success, err = ex.Wait()
+			if err != nil {
+				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
+				continue
+			}
+			err = w.psb.FlushToQueue()
+			if err != nil {
+				return false, fmt.Errorf("failed to flush %w", err)
+			}
+			// if we have reached this point, then we do not have any executor errors, so return success status
+			return success, nil
 		}
-		err = <-done
-		if err != nil {
-			return false, err
-		}
-		success, err := ex.Wait()
-		if err != nil {
-			w.handleCommandError(ctags, fmt.Errorf("failed to wait for command completion %w", err))
-			return false, nil
-		}
-		err = w.psb.FlushToQueue()
-		if err != nil {
-			return false, fmt.Errorf("failed to flush %w", err)
-		}
-		return success, nil
 	}
 	w.printAndStreamInfo(ex.GetTags(), "previous command failed or skipped, skipping")
 	return false, nil
