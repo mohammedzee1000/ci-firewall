@@ -192,15 +192,19 @@ func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
 	ctags := ex.GetTags()
 	var errList []error
+	var success bool
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		retryBackOff := w.retryLoopBackOff
 		for retry := 1; retry <= w.retryLoopCount; retry++ {
 			if retry > 1 {
-				retryBackOff = retryBackOff + w.retryLoopBackOff
-				w.printAndStreamInfo(ctags, fmt.Sprintf("attempt failed due to executor error, backing off for %s before retrying", retryBackOff))
-				time.Sleep(retryBackOff)
+				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
+				if retry < w.retryLoopCount {
+					retryBackOff = retryBackOff + w.retryLoopBackOff
+					w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
+					time.Sleep(retryBackOff)
+				}
 			}
 			w.printAndStreamInfo(ctags, fmt.Sprintf("Attempt %d", retry))
 			rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
@@ -236,14 +240,14 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 				errList = append(errList, err)
 				continue
 			}
-			success, err := ex.Wait()
+			success, err = ex.Wait()
 			if err != nil {
 				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
 				continue
 			}
-			if !success && retry >= w.retryLoopCount {
+			if retry >= w.retryLoopCount && !success {
 				w.printAndStreamErrors(ctags, errList)
-				return false, fmt.Errorf("failed due to errors %v", errList)
+				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
 			}
 			err = w.psb.FlushToQueue()
 			if err != nil {
