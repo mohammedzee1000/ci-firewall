@@ -141,6 +141,9 @@ func (wo *WorkOptions) Validate() (err error) {
 	if (wo.gitUser != "" && wo.gitEmail == "") || (wo.gitEmail != "" && wo.gitUser == "") {
 		return fmt.Errorf("both git user and git email must be provided together or neither of them")
 	}
+	if wo.retryLoopCount < 1 {
+		return fmt.Errorf("retry cound should be a natural number i.e >= 1")
+	}
 	return nil
 }
 

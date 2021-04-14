@@ -241,7 +241,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
 				continue
 			}
-			if !success && retry == w.retryLoopCount {
+			if !success && retry >= w.retryLoopCount {
 				w.printAndStreamErrors(ctags, errList)
 				return false, fmt.Errorf("failed due to errors %v", errList)
 			}
