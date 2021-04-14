@@ -201,6 +201,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 		for retry := 1; ; retry++ {
 			// if retry > 1 then we probably failed the last attempt
 			if retry > 1 {
+				success = false
 				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
 				// we want to do retry loop backoff for all but the last attempt
 				if retry < w.retryLoopCount {
@@ -259,10 +260,8 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			if err != nil {
 				return false, fmt.Errorf("failed to flush %w", err)
 			}
-			if success {
-				// if we are successful, we no longer need to try
-				return true, nil
-			}
+			// if we have reached this point, then we do not have any executor errors, so return success status
+			return success, nil
 		}
 	}
 	w.printAndStreamInfo(ex.GetTags(), "previous command failed or skipped, skipping")
