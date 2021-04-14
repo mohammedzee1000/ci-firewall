@@ -197,15 +197,20 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	if oldsuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		retryBackOff := w.retryLoopBackOff
+		//keep retrying for ever incrementing retry (internal break conditions present)
 		for retry := 1; ; retry++ {
+			// if retry > 1 then we probably failed the last attempt
 			if retry > 1 {
 				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
+				// we want to do retry loop backoff for all but the last attempt
 				if retry < w.retryLoopCount {
 					retryBackOff = retryBackOff + w.retryLoopBackOff
 					w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
 					time.Sleep(retryBackOff)
 				}
 			}
+			// if the last attempt was done and was not successful, then we have failed
+			// Note: this handles case where retry loop count was given as 1 as well as 1 >= 1 but success is true (see initialization above)
 			if retry >= w.retryLoopCount && !success {
 				w.printAndStreamErrors(ctags, errList)
 				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
@@ -234,6 +239,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 				}
 				done <- nil
 			}(done)
+			// if start or wait error out, then we record the error and move on to next attempt
 			err = ex.Start()
 			if err != nil {
 				errList = append(errList, fmt.Errorf("failed to start executing command %w", err))
@@ -253,8 +259,11 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			if err != nil {
 				return false, fmt.Errorf("failed to flush %w", err)
 			}
+			if success {
+				// if we are successful, we no longer need to try
+				return true, nil
+			}
 		}
-		return true, nil
 	}
 	w.printAndStreamInfo(ex.GetTags(), "previous command failed or skipped, skipping")
 	return false, nil
