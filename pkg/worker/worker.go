@@ -23,15 +23,15 @@ const scriptIdentity = "SCRIPT_IDENTITY"
 
 //Worker works on a request for test build
 type Worker struct {
-	rcvq            *queue.AMQPQueue
-	jenkinsProject  string
-	jenkinsBuild    int
-	jenkinsURL      string
-	jenkinsUser     string
-	jenkinsPassword string
-	cimsgenv        string
-	cimsg           *messages.RemoteBuildRequestMessage
-	envVars         map[string]string
+	rcvq             *queue.AMQPQueue
+	jenkinsProject   string
+	jenkinsBuild     int
+	jenkinsURL       string
+	jenkinsUser      string
+	jenkinsPassword  string
+	cimsgenv         string
+	cimsg            *messages.RemoteBuildRequestMessage
+	envVars          map[string]string
 	repoDir          string
 	sshNodes         *node.NodeList
 	psb              *printstreambuffer.PrintStreamBuffer
@@ -192,12 +192,12 @@ func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
 	ctags := ex.GetTags()
 	var errList []error
-	var success bool
+	success := true
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		retryBackOff := w.retryLoopBackOff
-		for retry := 1; retry <= w.retryLoopCount; retry++ {
+		for retry := 1; ; retry++ {
 			if retry > 1 {
 				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
 				if retry < w.retryLoopCount {
@@ -205,6 +205,10 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 					w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
 					time.Sleep(retryBackOff)
 				}
+			}
+			if retry >= w.retryLoopCount && !success {
+				w.printAndStreamErrors(ctags, errList)
+				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
 			}
 			w.printAndStreamInfo(ctags, fmt.Sprintf("Attempt %d", retry))
 			rdr, err := ex.InitCommand(workDir, cmd, util.EnvMapCopy(w.envVars), w.tags)
@@ -244,10 +248,6 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			if err != nil {
 				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
 				continue
-			}
-			if retry >= w.retryLoopCount && !success {
-				w.printAndStreamErrors(ctags, errList)
-				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
 			}
 			err = w.psb.FlushToQueue()
 			if err != nil {
