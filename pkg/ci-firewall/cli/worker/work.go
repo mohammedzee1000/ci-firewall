@@ -37,11 +37,11 @@ type WorkOptions struct {
 	final            bool
 	tags             []string
 	stripAnsiColor   bool
-	redact bool
-	gitUser string
-	gitEmail string
-	retryCount int
-	retryBackoff time.Duration
+	redact           bool
+	gitUser          string
+	gitEmail         string
+	retryLoopCount   int
+	retryLoopBackoff time.Duration
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -159,7 +159,7 @@ func (wo *WorkOptions) Run() (err error) {
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
 		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,
-		true, wo.gitUser, wo.gitEmail, wo.retryCount, wo.retryBackoff,
+		true, wo.gitUser, wo.gitEmail, wo.retryLoopCount, wo.retryLoopBackoff,
 	)
 	success, err := wo.worker.Run()
 	if err != nil {
@@ -200,8 +200,8 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().BoolVar(&o.redact, "redact", true, "if true, then injected envs and ip addresses are redacted from logs sent over queue. Default is true")
 	cmd.Flags().StringVar(&o.gitUser, "gituser", "", "The git user you want to configure for repo")
 	cmd.Flags().StringVar(&o.gitEmail, "gitemail", "", "The email of git user you want to configure on repo")
-	cmd.Flags().IntVar(&o.retryCount, "retrycount", 3, "The number of times we retry command if it fails. Defaults to 3")
-	cmd.Flags().DurationVar(&o.retryBackoff, "retrybackoff", 10 * time.Second, "The base amount of time to back off before retry. Defaults to 10 seconds. Actual backoff will be currentcount * backoff duration")
+	cmd.Flags().IntVar(&o.retryLoopCount, "retryloopcount", 3, "The number of times we retry command if it fails. Defaults to 3")
+	cmd.Flags().DurationVar(&o.retryLoopBackoff, "retryloopbackoff", 10 * time.Second, "The base amount of time to back off before retry on command execution due to execution errors. Defaults to 10 seconds. Actual backoff will be currentcount * backoff duration")
 	genericclioptions.AddStripANSIColorFlag(cmd, &o.stripAnsiColor)
 	return cmd
 }

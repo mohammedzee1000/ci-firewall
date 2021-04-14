@@ -32,18 +32,18 @@ type Worker struct {
 	cimsgenv        string
 	cimsg           *messages.RemoteBuildRequestMessage
 	envVars         map[string]string
-	repoDir         string
-	sshNodes        *node.NodeList
-	psb             *printstreambuffer.PrintStreamBuffer
-	final           bool
-	tags            []string
-	stripansicolor  bool
-	redact          bool
-	gitUser         string
-	gitEmail        string
-	filterfunc      func(params map[string]string) bool
-	retryCount      int
-	retrylBackOff   time.Duration
+	repoDir          string
+	sshNodes         *node.NodeList
+	psb              *printstreambuffer.PrintStreamBuffer
+	final            bool
+	tags             []string
+	stripansicolor   bool
+	redact           bool
+	gitUser          string
+	gitEmail         string
+	filterfunc       func(params map[string]string) bool
+	retryLoopCount   int
+	retryLoopBackOff time.Duration
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
@@ -52,27 +52,27 @@ type Worker struct {
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string, retryCount int, retryBackoff time.Duration) *Worker {
+func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string, retryLoopCount int, retryLoopBackoff time.Duration) *Worker {
 	w := &Worker{
-		rcvq:            nil,
-		cimsg:           cimsg,
-		jenkinsProject:  jenkinsProject,
-		jenkinsBuild:    jenkinsBuild,
-		jenkinsURL:      jenkinsURL,
-		jenkinsUser:     jenkinsUser,
-		jenkinsPassword: jenkinsPassword,
-		envVars:         envVars,
-		repoDir:         "repo",
-		sshNodes:        sshNodes,
-		final:           final,
-		tags:            tags,
-		stripansicolor:  stripANSIColor,
-		redact:          redact,
-		cimsgenv:        cimsgenv,
-		gitUser:         gitUser,
-		gitEmail:        gitEmail,
-		retryCount:      retryCount,
-		retrylBackOff:   retryBackoff,
+		rcvq:             nil,
+		cimsg:            cimsg,
+		jenkinsProject:   jenkinsProject,
+		jenkinsBuild:     jenkinsBuild,
+		jenkinsURL:       jenkinsURL,
+		jenkinsUser:      jenkinsUser,
+		jenkinsPassword:  jenkinsPassword,
+		envVars:          envVars,
+		repoDir:          "repo",
+		sshNodes:         sshNodes,
+		final:            final,
+		tags:             tags,
+		stripansicolor:   stripANSIColor,
+		redact:           redact,
+		cimsgenv:         cimsgenv,
+		gitUser:          gitUser,
+		gitEmail:         gitEmail,
+		retryLoopCount:   retryLoopCount,
+		retryLoopBackOff: retryLoopBackoff,
 	}
 	if amqpURI != "" {
 		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
@@ -195,11 +195,11 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	w.printAndStreamCommand(ctags, cmd)
 	if oldsuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
-		retryBackOff := w.retrylBackOff
-		for retry := 1; retry <= w.retryCount; retry++ {
+		retryBackOff := w.retryLoopBackOff
+		for retry := 1; retry <= w.retryLoopCount; retry++ {
 			if retry > 1 {
-				retryBackOff = retryBackOff + retryBackOff
-				w.printAndStreamInfo(ctags, fmt.Sprintf("attempt failed due to executor err, backing off for %s before retrying"))
+				retryBackOff = retryBackOff + w.retryLoopBackOff
+				w.printAndStreamInfo(ctags, fmt.Sprintf("attempt failed due to executor error, backing off for %s before retrying", retryBackOff))
 				time.Sleep(retryBackOff)
 			}
 			w.printAndStreamInfo(ctags, fmt.Sprintf("Attempt %d", retry))
@@ -241,7 +241,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
 				continue
 			}
-			if !success && retry == w.retryCount {
+			if !success && retry == w.retryLoopCount {
 				w.printAndStreamErrors(ctags, errList)
 				return false, fmt.Errorf("failed due to errors %v", errList)
 			}

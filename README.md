@@ -149,6 +149,8 @@ Main Command:
 - *Tags(Optional)*: Tags to attach to all logs from the worker (param `--tag value`). Every use appends to list.
 - *Strip ANSI Color*: Setting this to true, enables inbuilt stripping of ANSI Color from output. Printed by the worker. NOTE: This does not remove ANSI color from being streamed. (param `--stripansicolor`)
 - *Redact*: Setting this to true enables redaction of envs (`--env` values) and IP addresses from logs sent to the requester. Default is `true`. Arg `--redact=true`. The only exception is the env `CI`.
+ - *Retry Loop Count*: The number of times to retry command execution. Note: This applies to errors in execution, not command errors. Defaults to `3`. Arg `--retryloopcount N`
+ - *Retry Loop Backoff* The base duration to wait before retrying again. Defaults to `10s`. Note: Actual time will be `retry attempt * this time`. For eg taking default value, when 1st attempt fails, the second attempt will happen after `20s`. Arg `--retryloopbackoff duration`
 
 ### Toolkit Commands
 
@@ -204,9 +206,9 @@ The format of th file is as below
 
 *NOTE*: port is optional and defaults to 22 if not provided
 
-**WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. Safest bet is to use a program to read content and paste it here
+**WARNING**:  `privatekey` is the ssh private key itself. Not to be mistaken with path of the private key. The Safest bet is to use a program to read content and paste it here
 
-**WARNING**: When using sshnode with windows/mac, some of the system paths may not get exposed correctly. If you rely on any such paths, eg /usr/local/bin on mac for eg, You might want to set the path again in your script
+**WARNING**: When using sshnode with windows/mac, some system paths may not get exposed correctly. If you rely on any such paths, eg /usr/local/bin on mac for eg, You might want to set the path again in your script
 
 ## Optional Standalone worker mode
 
