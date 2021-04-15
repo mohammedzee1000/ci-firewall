@@ -203,8 +203,8 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			if retry > 1 {
 				success = false
 				w.printAndStreamInfo(ctags, "attempt failed due to executor error")
-				// we want to do retry loop backoff for all but the last attempt
-				if retry < w.retryLoopCount {
+				// we want to do retry loop backoff for all attempts greater than one until the last attempt
+				if retry <= w.retryLoopCount {
 					retryBackOff = retryBackOff + w.retryLoopBackOff
 					w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
 					time.Sleep(retryBackOff)
