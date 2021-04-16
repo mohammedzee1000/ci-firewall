@@ -212,7 +212,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 			}
 			// if the last attempt was done and was not successful, then we have failed
 			// Note: this handles case where retry loop count was given as 1 as well as 1 >= 1 but success is true (see initialization above)
-			if retry >= w.retryLoopCount && !success {
+			if retry > w.retryLoopCount && !success {
 				w.printAndStreamErrors(ctags, errList)
 				return false, fmt.Errorf("failed due to errors, aborting %v", errList)
 			}
