@@ -2,10 +2,11 @@ package requestor
 
 import (
 	"fmt"
-	"k8s.io/klog/v2"
 	"log"
 	"os"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/ci-firewall/cli/genericclioptions"
 	"github.com/mohammedzee1000/ci-firewall/pkg/jenkins"
@@ -153,7 +154,7 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.runScriptURL, "runscripturl", "", "the url of remote run script, if any. Must be providede with --runscript as that is what it will be downloaded as")
 	cmd.Flags().StringVar(&o.setupScript, "setupscript", os.Getenv(messages.RequestParameterSetupScript), "the setup script to run")
 	cmd.Flags().DurationVar(&o.timeout, "timeout", 15*time.Minute, "timeout duration ")
-	cmd.Flags().StringVar(&o.mainBranch, "mainbranch", "master", "the main branch, to be provided if kind is PR")
+	cmd.Flags().StringVar(&o.mainBranch, "mainbranch", "main", "the main branch, to be provided if kind is PR")
 	cmd.Flags().BoolVar(&o.lazy, "lazy", false, "Use lazy queues. This simply appends lazy to rcv queue name. So configure rabbitmq accordingly. see https://www.rabbitmq.com/lazy-queues.html")
 	return cmd
 }

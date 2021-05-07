@@ -215,5 +215,5 @@ The format of th file is as below
 This allows you to use worker in standalone mode. Note however, you will need to provide `CI_MESSAGE` yourself. See below for example.
 
 ```bash
-export CI_MESSAGE='{"repourl": "repourl", "kind": "PR", "target": "target", "setupscript": "setupscript", "runscript": "runscript", "rcvident": "rcvident", "runscripturl": "http://url", "mainbranch": "master", "jenkinsproject": "name of jenkins project to build"}'
+export CI_MESSAGE='{"repourl": "repourl", "kind": "PR", "target": "target", "setupscript": "setupscript", "runscript": "runscript", "rcvident": "rcvident", "runscripturl": "http://url", "mainbranch": "main", "jenkinsproject": "name of jenkins project to build"}'
 ```
