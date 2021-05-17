@@ -42,6 +42,7 @@ type WorkOptions struct {
 	gitEmail         string
 	retryLoopCount   int
 	retryLoopBackoff time.Duration
+	processNodeGroup string
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -144,6 +145,9 @@ func (wo *WorkOptions) Validate() (err error) {
 	if wo.retryLoopCount < 1 {
 		return fmt.Errorf("retry count should be a natural number i.e >= 1")
 	}
+	if wo.processNodeGroup != "" || wo.processNodeGroup != node.NodeGroupRandomOnePerGroup {
+		return fmt.Errorf("processnode group must be one of following : %v", []string{node.NodeGroupRandomOnePerGroup})
+	}
 	return nil
 }
 
@@ -158,6 +162,7 @@ func (wo *WorkOptions) Run() (err error) {
 		}
 		klog.V(4).Infof("parsed node list looks like %#v", nl)
 	}
+	nl.ProcessNodeGroup(wo.processNodeGroup)
 	klog.V(2).Infof("initializing worker")
 	wo.worker = worker.NewWorker(
 		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
@@ -205,6 +210,7 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.gitEmail, "gitemail", "", "The email of git user you want to configure on repo")
 	cmd.Flags().IntVar(&o.retryLoopCount, "retryloopcount", 3, "The number of times we retry command if it fails. Defaults to 3")
 	cmd.Flags().DurationVar(&o.retryLoopBackoff, "retryloopbackoff", 10 * time.Second, "The base amount of time to back off before retry on command execution due to execution errors. Defaults to 10 seconds. Actual backoff will be currentcount * backoff duration")
+	cmd.Flags().StringVar(&o.processNodeGroup, "processnodegroup", "", "The logic to be used to process node groups. Defaults to \"\" which means no processing")
 	genericclioptions.AddStripANSIColorFlag(cmd, &o.stripAnsiColor)
 	return cmd
 }
