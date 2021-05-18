@@ -145,7 +145,7 @@ func (wo *WorkOptions) Validate() (err error) {
 	if wo.retryLoopCount < 1 {
 		return fmt.Errorf("retry count should be a natural number i.e >= 1")
 	}
-	if wo.processNodeGroup != "" || wo.processNodeGroup != node.NodeGroupRandomOnePerGroup {
+	if wo.processNodeGroup != "" && wo.processNodeGroup != node.NodeGroupRandomOnePerGroup {
 		return fmt.Errorf("processnode group must be one of following : %v", []string{node.NodeGroupRandomOnePerGroup})
 	}
 	return nil
