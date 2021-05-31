@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"time"
 )
 
 const (
 	NodeBaseOS = "BASE_OS"
 	NodeArch   = "ARCH"
+	NodeGroupRandomOnePerGroup = "random-one-per-group"
 )
 
 type Node struct {
@@ -23,6 +26,7 @@ type Node struct {
 	SSHPassword string   `json:"password"`
 	SSHKey      string   `json:"privatekey"`
 	Tags        []string `json:"tags"`
+	Group       string   `json:"group"`
 }
 
 type NodeList struct {
@@ -37,7 +41,7 @@ func newNodeList() *NodeList {
 	return &NodeList{}
 }
 
-func newNode(name, user, address, baseos, arch, sshpasswd, privatekey string, tags []string, port int) *Node {
+func newNode(name, user, address, baseos, arch, sshpasswd, privatekey string, tags []string, port int, group string) *Node {
 	return &Node{
 		Name:        name,
 		User:        user,
@@ -49,6 +53,35 @@ func newNode(name, user, address, baseos, arch, sshpasswd, privatekey string, ta
 		SSHKey:      privatekey,
 		Tags:        tags,
 	}
+}
+
+func (nl *NodeList) nodesPerGroup() map[string][]Node {
+	npg := make(map[string][]Node)
+	for _, n := range nl.Nodes {
+		_, ok := npg[n.Group]
+		if !ok {
+			npg[n.Group] = make([]Node, 0)
+		}
+		npg[n.Group] = append(npg[n.Group], n)
+	}
+	return npg
+}
+
+func (nl *NodeList) ProcessNodeGroup(processkind string) {
+	nll := newNodeList()
+	switch processkind {
+	case NodeGroupRandomOnePerGroup:
+		npg := nl.nodesPerGroup()
+		s1 := rand.NewSource(time.Now().UnixNano())
+		r1 := rand.New(s1)
+		for _, v := range npg {
+			nll.Nodes = append(nll.Nodes, v[r1.Intn(len(v))])
+		}
+		break
+	default:
+		return
+	}
+	nl.Nodes = nll.Nodes
 }
 
 func NodesFromJson(nodejson []byte) (*NodeList, error) {
@@ -81,7 +114,7 @@ func NodesFromFiles(files []string) (*NodeList, error) {
 	return nl, nil
 }
 
-func AddNodeToFile(filepath, name, user, address, baseos, arch, sshpasswd, privatekeyfile string, tags []string, port int) error {
+func AddNodeToFile(filepath, name, user, address, baseos, arch, sshpasswd, privatekeyfile string, tags []string, port int, group string) error {
 	var nl *NodeList
 	var privatekey string
 	if privatekeyfile != "" {
@@ -99,7 +132,7 @@ func AddNodeToFile(filepath, name, user, address, baseos, arch, sshpasswd, priva
 			return fmt.Errorf("failed to parse ssh key after converting to string")
 		}
 	}
-	nd := newNode(name, user, address, baseos, arch, sshpasswd, privatekey, tags, port)
+	nd := newNode(name, user, address, baseos, arch, sshpasswd, privatekey, tags, port, group)
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		nl = newNodeList()
 	} else {

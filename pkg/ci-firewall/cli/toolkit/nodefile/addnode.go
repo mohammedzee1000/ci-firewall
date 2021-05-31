@@ -20,6 +20,7 @@ type NodeFileAddNodeOptions struct {
 	password string
 	privatekeyfile string
 	tags []string
+	group string
 }
 
 func newNodeFileAddNodeOptions() *NodeFileAddNodeOptions {
@@ -53,7 +54,7 @@ func (nfano *NodeFileAddNodeOptions) Validate() (err error) {
 }
 
 func (nfano *NodeFileAddNodeOptions) Run() (err error) {
-	err = node.AddNodeToFile(nfano.nodefile, nfano.name, nfano.user, nfano.address, nfano.baseos, nfano.arch, nfano.password, nfano.privatekeyfile, nfano.tags, nfano.port)
+	err = node.AddNodeToFile(nfano.nodefile, nfano.name, nfano.user, nfano.address, nfano.baseos, nfano.arch, nfano.password, nfano.privatekeyfile, nfano.tags, nfano.port, nfano.group)
 	if err != nil {
 		return fmt.Errorf("failed to add node info to file : %w", err)
 	}
@@ -80,5 +81,6 @@ func NewCmdNodeFileAddNode(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.password, "password", "", "The password to use to login to node")
 	cmd.Flags().StringVar(&o.privatekeyfile, "privatekeyfile", "", "The path to the private key file")
 	cmd.Flags().StringArrayVar(&o.tags, "tag", []string{}, "The tags to add to the node")
+	cmd.Flags().StringVar(&o.group, "group", "", "the group to which the machine belongs. Defaults to \"\"")
 	return cmd
 }
