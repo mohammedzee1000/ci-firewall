@@ -426,7 +426,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 		ex = executor.NewLocalExecutor()
 		w.printAndStreamInfo(ex.GetTags(), "running tests locally")
 	}
-	status, err := w.setupTests(ex, instanceWorkDir, repoDir)
+	status, err := w.setupTests(ex, baseWorkDir, repoDir)
 	if err != nil {
 		return false, fmt.Errorf("setup failed %w", err)
 	}
