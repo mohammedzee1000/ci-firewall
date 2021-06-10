@@ -434,7 +434,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to run the tests %w", err)
 	}
-	status, err = w.tearDownTests(status, ex, workDir)
+	status, err = w.tearDownTests(status, ex, baseWorkDir)
 	if err != nil {
 		return false, fmt.Errorf("failed cleanup %w", err)
 	}
