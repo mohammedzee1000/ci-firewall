@@ -410,8 +410,9 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 func (w *Worker) test(nd *node.Node) (bool, error) {
 	var err error
 	var ex executor.Executor
-	workDir := strings.ReplaceAll(w.cimsg.RcvIdent, ".", "_")
-	repoDir := filepath.Join(workDir, w.repoDir)
+	baseWorkDir := util.GetBaseWorkDir(w.cimsg.RcvIdent)
+	instanceWorkDir := filepath.Join(baseWorkDir, util.GetInstanceWorkdirName())
+	repoDir := filepath.Join(instanceWorkDir, w.repoDir)
 	if nd != nil {
 		klog.V(2).Infof("no node specified, creating LocalExecutor")
 		ex, err = executor.NewNodeSSHExecutor(nd)
@@ -425,7 +426,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 		ex = executor.NewLocalExecutor()
 		w.printAndStreamInfo(ex.GetTags(), "running tests locally")
 	}
-	status, err := w.setupTests(ex, workDir, repoDir)
+	status, err := w.setupTests(ex, baseWorkDir, repoDir)
 	if err != nil {
 		return false, fmt.Errorf("setup failed %w", err)
 	}
@@ -433,7 +434,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to run the tests %w", err)
 	}
-	status, err = w.tearDownTests(status, ex, workDir)
+	status, err = w.tearDownTests(status, ex, baseWorkDir)
 	if err != nil {
 		return false, fmt.Errorf("failed cleanup %w", err)
 	}

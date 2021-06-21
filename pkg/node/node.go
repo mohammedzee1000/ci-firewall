@@ -3,11 +3,10 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/mohammedzee1000/ci-firewall/pkg/util"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"time"
 )
 
 const (
@@ -72,10 +71,8 @@ func (nl *NodeList) ProcessNodeGroup(processkind string) {
 	switch processkind {
 	case NodeGroupRandomOnePerGroup:
 		npg := nl.nodesPerGroup()
-		s1 := rand.NewSource(time.Now().UnixNano())
-		r1 := rand.New(s1)
 		for _, v := range npg {
-			nll.Nodes = append(nll.Nodes, v[r1.Intn(len(v))])
+			nll.Nodes = append(nll.Nodes, v[util.GetRandomIntInRange(len(v))])
 		}
 		break
 	default:
