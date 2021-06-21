@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -101,16 +102,16 @@ func (w *Worker) initFilterFunc() {
 	}
 }
 
-func (w *Worker) checkForNewerBuilds() error {
+func (w *Worker) checkForNewerBuilds() (bool, error) {
 	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
 	if err != nil {
-		return fmt.Errorf("failed to check for newer builds %w", err)
+		return false, fmt.Errorf("failed to check for newer builds %w", err)
 	}
 	time.Sleep(20 * time.Second)
 	if exists {
-		return fmt.Errorf("found newer build in queue, cancelling current")
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
 
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
@@ -237,6 +238,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 						break
 					}
 					w.printAndStreamLog(ctags, data)
+					time.Sleep(25*time.Millisecond)
 				}
 				done <- nil
 			}(done)
@@ -494,10 +496,22 @@ func (w *Worker) printBuildInfo() {
 func (w *Worker) Run() (bool, error) {
 	var success bool
 	w.initFilterFunc()
-	err := w.checkForNewerBuilds()
+	exists, err := w.checkForNewerBuilds()
 	if err != nil {
 		return false, err
 	}
+	if exists {
+		return false, fmt.Errorf("newer build found, not moving forward")
+	}
+	go func() {
+		for {
+			exists1, _ := w.checkForNewerBuilds()
+			if exists1 {
+				log.Fatalf("found newer build, cancelling current build")
+			}
+			time.Sleep(2*time.Minute)
+		}
+	}()
 	if err = w.cleanupOldBuilds(); err != nil {
 		return false, err
 	}
