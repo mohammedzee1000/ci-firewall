@@ -24,31 +24,31 @@ const scriptIdentity = "SCRIPT_IDENTITY"
 
 //Worker works on a request for test build
 type Worker struct {
-	rcvq             *queue.AMQPQueue
+	receiveQueue     *queue.AMQPQueue
 	jenkinsProject   string
 	jenkinsBuild     int
 	jenkinsURL       string
 	jenkinsUser      string
 	jenkinsPassword  string
-	cimsgenv         string
-	cimsg            *messages.RemoteBuildRequestMessage
+	ciMessageEnv     string
+	ciMessage        *messages.RemoteBuildRequestMessage
 	envVars          map[string]string
 	repoDir          string
 	sshNodes         *node.NodeList
 	psb              *printstreambuffer.PrintStreamBuffer
 	final            bool
 	tags             []string
-	stripansicolor   bool
+	stripANSIColor   bool
 	redact           bool
 	gitUser          string
 	gitEmail         string
-	filterfunc       func(params map[string]string) bool
+	filterFunc       func(params map[string]string) bool
 	retryLoopCount   int
 	retryLoopBackOff time.Duration
 	redactExceptions []string
 }
 
-type WorkerOptions struct {
+type NewWorkerOptions struct {
 	AMQPURI               string
 	JenkinsURL            string
 	JenkinsUser           string
@@ -72,15 +72,15 @@ type WorkerOptions struct {
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
-//Instead cimsg must be provided manually(see readme). AMQPURI is full uri (including username and password) of rabbitmq server.
+//Instead ciMessage must be provided manually(see readme). AMQPURI is full uri (including username and password) of rabbitmq server.
 //jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject are info related to jenkins (robot account is used for cancelling
-//older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
+//older builds by matching job parameter cienvmsg). ciMessage is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(wo *WorkerOptions) *Worker {
+func NewWorker(wo *NewWorkerOptions) *Worker {
 	w := &Worker{
-		rcvq:             nil,
-		cimsg:            wo.CIMessage,
+		receiveQueue:     nil,
+		ciMessage:        wo.CIMessage,
 		jenkinsProject:   wo.JenkinsProject,
 		jenkinsBuild:     wo.JenkinsBuild,
 		jenkinsURL:       wo.JenkinsURL,
@@ -91,34 +91,34 @@ func NewWorker(wo *WorkerOptions) *Worker {
 		sshNodes:         wo.SSHNodes,
 		final:            wo.Final,
 		tags:             wo.Tags,
-		stripansicolor:   wo.StripANSIColor,
+		stripANSIColor:   wo.StripANSIColor,
 		redact:           wo.Redact,
 		redactExceptions: wo.RedactExceptions,
-		cimsgenv:         wo.CIMessageEnv,
+		ciMessageEnv:     wo.CIMessageEnv,
 		gitUser:          wo.GitUser,
 		gitEmail:         wo.GitEmail,
 		retryLoopCount:   wo.RetryLoopCount,
 		retryLoopBackOff: wo.RetryLoopBackOff,
 	}
 	if wo.AMQPURI != "" {
-		w.rcvq = queue.NewAMQPQueue(wo.AMQPURI, wo.CIMessage.RcvIdent)
+		w.receiveQueue = queue.NewAMQPQueue(wo.AMQPURI, wo.CIMessage.RcvIdent)
 	}
 	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", wo.JenkinsProject, wo.CIMessage.Kind, wo.CIMessage.Target))
 	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
-	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, wo.PrintStreamBufferSize, w.jenkinsBuild, w.jenkinsProject, w.envVars, w.redact, []string{})
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.receiveQueue, wo.PrintStreamBufferSize, w.jenkinsBuild, w.jenkinsProject, w.envVars, w.redact, []string{})
 	return w
 }
 
 func (w *Worker) initFilterFunc() {
-	w.filterfunc = func(params map[string]string) bool {
+	w.filterFunc = func(params map[string]string) bool {
 		for k, v := range params {
-			if k == w.cimsgenv {
-				//v is the cimsg of this job
+			if k == w.ciMessageEnv {
+				//v is the ciMessage of this job
 				klog.V(3).Infof("parsing ci message for build being looked at")
 				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.cimsg.Kind && jcim.RcvIdent == w.cimsg.RcvIdent && jcim.RepoURL == w.cimsg.RepoURL && jcim.Target == w.cimsg.Target && jcim.RunScript == w.cimsg.RunScript && jcim.SetupScript == w.cimsg.SetupScript && jcim.RunScriptURL == w.cimsg.RunScriptURL && jcim.MainBranch == w.cimsg.MainBranch && jcim.JenkinsProject == w.cimsg.JenkinsProject {
+				if jcim.Kind == w.ciMessage.Kind && jcim.RcvIdent == w.ciMessage.RcvIdent && jcim.RepoURL == w.ciMessage.RepoURL && jcim.Target == w.ciMessage.Target && jcim.RunScript == w.ciMessage.RunScript && jcim.SetupScript == w.ciMessage.SetupScript && jcim.RunScriptURL == w.ciMessage.RunScriptURL && jcim.MainBranch == w.ciMessage.MainBranch && jcim.JenkinsProject == w.ciMessage.JenkinsProject {
 					return true
 				}
 			}
@@ -128,7 +128,7 @@ func (w *Worker) initFilterFunc() {
 }
 
 func (w *Worker) checkForNewerBuilds() (bool, error) {
-	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
+	exists, err := jenkins.NewerBuildsExist(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterFunc)
 	if err != nil {
 		return false, fmt.Errorf("failed to check for newer builds %w", err)
 	}
@@ -142,7 +142,7 @@ func (w *Worker) checkForNewerBuilds() (bool, error) {
 // cleanupOldBuilds cleans up older jenkins builds by matching the ci message parameter. Returns error in case of fail
 func (w *Worker) cleanupOldBuilds() error {
 	klog.V(2).Infof("cleaning up old jenkins builds with matching ci message")
-	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterfunc)
+	err := jenkins.CleanupOldBuilds(w.jenkinsURL, w.jenkinsUser, w.jenkinsPassword, w.jenkinsProject, w.jenkinsBuild, w.filterFunc)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup old builds %w", err)
 	}
@@ -151,9 +151,9 @@ func (w *Worker) cleanupOldBuilds() error {
 
 //initQueues initializes rabbitmq queues used by worker. Returns error in case of fail
 func (w *Worker) initQueues() error {
-	if w.rcvq != nil {
+	if w.receiveQueue != nil {
 		klog.V(2).Infof("initialising queues for worker")
-		err := w.rcvq.Init()
+		err := w.receiveQueue.Init()
 		if err != nil {
 			return fmt.Errorf("failed to initialize rcv queue %w", err)
 		}
@@ -162,25 +162,25 @@ func (w *Worker) initQueues() error {
 }
 
 func (w *Worker) sendCancelMessage() error {
-	if w.rcvq != nil {
+	if w.receiveQueue != nil {
 		klog.V(2).Infof("sending cancel message in order to ensure requester stops following any older builds")
-		return w.rcvq.Publish(false, messages.NewCancelMessage(w.jenkinsBuild, w.jenkinsProject))
+		return w.receiveQueue.Publish(false, messages.NewCancelMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
 
 //sendBuildInfo sends information about the build. Returns error in case of fail
 func (w *Worker) sendBuildInfo() error {
-	if w.rcvq != nil {
+	if w.receiveQueue != nil {
 		klog.V(2).Infof("publishing build information on rcv queue")
-		return w.rcvq.Publish(false, messages.NewBuildMessage(w.jenkinsBuild, w.jenkinsProject))
+		return w.receiveQueue.Publish(false, messages.NewBuildMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
 
 //printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
 func (w *Worker) printAndStreamLog(tags []string, msg string) error {
-	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false, w.stripansicolor)
+	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false, w.stripANSIColor)
 	if err != nil {
 		return fmt.Errorf("failed to stream log message %w", err)
 	}
@@ -188,7 +188,7 @@ func (w *Worker) printAndStreamLog(tags []string, msg string) error {
 }
 
 func (w *Worker) handleCommandError(tags []string, err error) error {
-	err1 := w.psb.Print(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err), true, w.stripansicolor)
+	err1 := w.psb.Print(fmt.Sprintf("%v Command Error %s, failing gracefully", tags, err), true, w.stripANSIColor)
 	if err1 != nil {
 		return fmt.Errorf("failed to stream command error message %w", err)
 	}
@@ -198,7 +198,7 @@ func (w *Worker) handleCommandError(tags []string, err error) error {
 //printAndStreamInfo prints and streams an info msg
 func (w *Worker) printAndStreamInfo(tags []string, info string) error {
 	toprint := fmt.Sprintf("%v !!!%s!!!\n", tags, info)
-	return w.psb.Print(toprint, true, w.stripansicolor)
+	return w.psb.Print(toprint, true, w.stripANSIColor)
 }
 
 func (w *Worker) printAndStreamErrors(tags []string, errlist []error) error {
@@ -206,12 +206,12 @@ func (w *Worker) printAndStreamErrors(tags []string, errlist []error) error {
 	for _, e := range errlist {
 		errMsg = fmt.Sprintf(" - %s\n", e.Error())
 	}
-	return w.psb.Print(errMsg, true, w.stripansicolor)
+	return w.psb.Print(errMsg, true, w.stripANSIColor)
 }
 
 //printAndStreamCommand print and streams a command. Returns error in case of fail
 func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
-	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true, w.stripansicolor)
+	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true, w.stripANSIColor)
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
@@ -330,7 +330,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 		return false, fmt.Errorf("failed to create workdir %w", err)
 	}
 	klog.V(2).Infof("cloning repo and checking out the target")
-	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.cimsg.RepoURL, repoDir})
+	status, err = w.runCommand(status, ex, "", []string{"git", "clone", w.ciMessage.RepoURL, repoDir})
 	if err != nil {
 		return false, fmt.Errorf("git clone failed %w", err)
 	}
@@ -338,19 +338,19 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to setup git %w", err)
 	}
-	if w.cimsg.Kind == messages.RequestTypePR {
+	if w.ciMessage.Kind == messages.RequestTypePR {
 		klog.V(2).Infof("checking out PR and merging it with the main branch")
-		klog.V(3).Infof("PR %s and main branch %s", w.cimsg.Target, w.cimsg.MainBranch)
-		chkout = fmt.Sprintf("pr%s", w.cimsg.Target)
-		pulltgt := fmt.Sprintf("pull/%s/head:%s", w.cimsg.Target, chkout)
+		klog.V(3).Infof("PR %s and main branch %s", w.ciMessage.Target, w.ciMessage.MainBranch)
+		chkout = fmt.Sprintf("pr%s", w.ciMessage.Target)
+		pulltgt := fmt.Sprintf("pull/%s/head:%s", w.ciMessage.Target, chkout)
 		status1, err := w.runCommand(status, ex, repoDir, []string{"git", "fetch", "-v", "origin", pulltgt})
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in repo %s %w", w.cimsg.Target, w.cimsg.RepoURL, err)
+			return false, fmt.Errorf("failed to fetch pr no %s, are you sure it exists in repo %s %w", w.ciMessage.Target, w.ciMessage.RepoURL, err)
 		}
 		if !status1 {
-			fmt.Printf("couldn't find remote ref for pr no %s, running tests on main branch", w.cimsg.Target)
+			fmt.Printf("couldn't find remote ref for pr no %s, running tests on main branch", w.ciMessage.Target)
 		}
-		status, err = w.runCommand(true, ex, repoDir, []string{"git", "checkout", w.cimsg.MainBranch})
+		status, err = w.runCommand(true, ex, repoDir, []string{"git", "checkout", w.ciMessage.MainBranch})
 		if err != nil {
 			return false, fmt.Errorf("failed to switch to main branch %w", err)
 		}
@@ -360,24 +360,24 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 				return false, fmt.Errorf("failed to fast forward merge %w", err)
 			}
 		}
-	} else if w.cimsg.Kind == messages.RequestTypeBranch {
+	} else if w.ciMessage.Kind == messages.RequestTypeBranch {
 		klog.V(2).Infof("checkout out branch")
-		chkout = w.cimsg.Target
+		chkout = w.ciMessage.Target
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
-	} else if w.cimsg.Kind == messages.RequestTypeTag {
+	} else if w.ciMessage.Kind == messages.RequestTypeTag {
 		klog.V(2).Infof("checking out git tag")
-		chkout = fmt.Sprintf("tags/%s", w.cimsg.Target)
+		chkout = fmt.Sprintf("tags/%s", w.ciMessage.Target)
 		//4 checkout
 		status, err = w.runCommand(status, ex, repoDir, []string{"git", "checkout", chkout})
 		if err != nil {
 			return false, fmt.Errorf("failed to checkout %w", err)
 		}
 	} else {
-		return false, fmt.Errorf("invalid kind parameter %s. Must be one of %s, %s or %s", w.cimsg.Kind, messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
+		return false, fmt.Errorf("invalid kind parameter %s. Must be one of %s, %s or %s", w.ciMessage.Kind, messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
 	return status, nil
 }
@@ -390,17 +390,17 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		klog.V(2).Infof("setting up test command")
 		//1 Setup the runCmd based on if setup script and run script
 		var runCmd string
-		if w.cimsg.SetupScript != "" {
+		if w.ciMessage.SetupScript != "" {
 			klog.Infof("setup script detected, adding to command")
-			runCmd = fmt.Sprint(". ", w.cimsg.SetupScript, " && ")
+			runCmd = fmt.Sprint(". ", w.ciMessage.SetupScript, " && ")
 		}
 		klog.V(2).Infof("adding run script to command")
-		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
+		runCmd = fmt.Sprint(runCmd, ". ", w.ciMessage.RunScript)
 		runCmd = fmt.Sprintf("\"%s\"", runCmd)
 		//2 Download runscript, if provided
-		if w.cimsg.RunScriptURL != "" {
+		if w.ciMessage.RunScriptURL != "" {
 			klog.V(2).Infof("downloading run script for a url")
-			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.cimsg.RunScript, w.cimsg.RunScriptURL})
+			status, err = w.runCommand(status, ex, repoDir, []string{"curl", "-kLo", w.ciMessage.RunScript, w.ciMessage.RunScriptURL})
 			if err != nil {
 				return false, fmt.Errorf("failed to download run script")
 			}
@@ -437,7 +437,7 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 func (w *Worker) test(nd *node.Node) (bool, error) {
 	var err error
 	var ex executor.Executor
-	baseWorkDir := util.GetBaseWorkDir(w.cimsg.RcvIdent)
+	baseWorkDir := util.GetBaseWorkDir(w.ciMessage.RcvIdent)
 	instanceWorkDir := filepath.Join(baseWorkDir, util.GetInstanceWorkdirName())
 	repoDir := filepath.Join(instanceWorkDir, w.repoDir)
 	if nd != nil {
@@ -499,22 +499,22 @@ func (w *Worker) run() (bool, error) {
 func (w *Worker) sendStatusMessage(success bool) error {
 	sm := messages.NewStatusMessage(w.jenkinsBuild, success, w.jenkinsProject)
 	klog.V(2).Infof("sending status message")
-	if w.rcvq != nil {
-		return w.rcvq.Publish(false, sm)
+	if w.receiveQueue != nil {
+		return w.receiveQueue.Publish(false, sm)
 	}
 	return nil
 }
 
 func (w *Worker) sendFinalizeMessage() error {
 	klog.V(2).Infof("sending final message")
-	if w.rcvq != nil && w.final {
-		return w.rcvq.Publish(false, messages.NewFinalMessage(w.jenkinsBuild, w.jenkinsProject))
+	if w.receiveQueue != nil && w.final {
+		return w.receiveQueue.Publish(false, messages.NewFinalMessage(w.jenkinsBuild, w.jenkinsProject))
 	}
 	return nil
 }
 
 func (w *Worker) printBuildInfo() {
-	fmt.Printf("!!!Build for Kind: %s Target: %s!!!\n", w.cimsg.Kind, w.cimsg.Target)
+	fmt.Printf("!!!Build for Kind: %s Target: %s!!!\n", w.ciMessage.Kind, w.ciMessage.Target)
 }
 
 //Run runs the worker and returns error if any.
@@ -571,8 +571,8 @@ func (w *Worker) Run() (bool, error) {
 
 //Shutdown shuts down the worker and returns error if any
 func (w *Worker) Shutdown() error {
-	if w.rcvq != nil {
-		return w.rcvq.Shutdown(false)
+	if w.receiveQueue != nil {
+		return w.receiveQueue.Shutdown(false)
 	}
 	return nil
 }

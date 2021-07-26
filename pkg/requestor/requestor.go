@@ -10,7 +10,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type Requestor struct {
+type Requester struct {
 	sendq            *queue.JMSAMQPQueue
 	rcvq             *queue.AMQPQueue
 	jenkinsBuild     int
@@ -19,14 +19,14 @@ type Requestor struct {
 	target           string
 	runscript        string
 	setupScript      string
-	recieveQueueName string
+	receiveQueueName string
 	runScriptURL     string
 	mainBranch       string
 	done             chan error
 	jenkinsProject   string
 }
 
-type NewRequestorOptions struct {
+type NewRequesterOptions struct {
 	AMQPURI          string
 	SendQueueName    string
 	ExchangeName     string
@@ -36,22 +36,22 @@ type NewRequestorOptions struct {
 	Target           string
 	SetupScript      string
 	RunScript        string
-	RecieveQueueName string
+	ReceiveQueueName string
 	RunScriptURL     string
 	MainBranch       string
 	JenkinsProject   string
 }
 
-func NewRequestor(nro *NewRequestorOptions) *Requestor {
-	r := &Requestor{
+func NewRequester(nro *NewRequesterOptions) *Requester {
+	r := &Requester{
 		sendq:            queue.NewJMSAMQPQueue(nro.AMQPURI, nro.SendQueueName, nro.ExchangeName, nro.Topic),
-		rcvq:             queue.NewAMQPQueue(nro.AMQPURI, nro.RecieveQueueName),
+		rcvq:             queue.NewAMQPQueue(nro.AMQPURI, nro.ReceiveQueueName),
 		jenkinsBuild:     -1,
 		repoURL:          nro.RepoURL,
 		kind:             nro.Kind,
 		target:           nro.Target,
 		runscript:        nro.RunScript,
-		recieveQueueName: nro.RecieveQueueName,
+		receiveQueueName: nro.ReceiveQueueName,
 		setupScript:      nro.SetupScript,
 		runScriptURL:     nro.RunScriptURL,
 		mainBranch:       nro.MainBranch,
@@ -61,7 +61,7 @@ func NewRequestor(nro *NewRequestorOptions) *Requestor {
 	return r
 }
 
-func (r *Requestor) initQueus() error {
+func (r *Requester) initQueues() error {
 	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
@@ -76,9 +76,9 @@ func (r *Requestor) initQueus() error {
 	return nil
 }
 
-func (r *Requestor) sendBuildRequest() error {
+func (r *Requester) sendBuildRequest() error {
 	var err error
-	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
+	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.receiveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
 	klog.V(2).Infof("sending remote build request")
 	klog.V(4).Infof("remote build request: %#v", rbr)
 	err = r.sendq.Publish(rbr)
@@ -88,7 +88,7 @@ func (r *Requestor) sendBuildRequest() error {
 	return nil
 }
 
-func (r *Requestor) consumeMessages() error {
+func (r *Requester) consumeMessages() error {
 	klog.V(2).Infof("listening on rcv queue %s for messages from worker")
 	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
@@ -158,7 +158,7 @@ func (r *Requestor) consumeMessages() error {
 						if success {
 							done <- nil
 						} else {
-							done <- fmt.Errorf("Failed the test, see logs above ^")
+							done <- fmt.Errorf("failed the test, see logs above ^")
 						}
 						return
 					} else {
@@ -169,7 +169,10 @@ func (r *Requestor) consumeMessages() error {
 				klog.V(2).Infof("skipping message as job name of message did not match job name expected by requester")
 				klog.V(4).Infof("want %s, got %s", r.jenkinsProject, m.JenkinsProject)
 			}
-			d.Ack(false)
+			err := d.Ack(false)
+			if err != nil {
+				done <- fmt.Errorf("unable to ack msg %w", err)
+			}
 		}
 	}, r.done)
 	if err != nil {
@@ -178,8 +181,8 @@ func (r *Requestor) consumeMessages() error {
 	return nil
 }
 
-func (r *Requestor) Run() error {
-	err := r.initQueus()
+func (r *Requester) Run() error {
+	err := r.initQueues()
 	if err != nil {
 		return err
 	}
@@ -194,11 +197,11 @@ func (r *Requestor) Run() error {
 	return nil
 }
 
-func (r *Requestor) Done() chan error {
+func (r *Requester) Done() chan error {
 	return r.done
 }
 
-func (r *Requestor) ShutDown() error {
+func (r *Requester) ShutDown() error {
 	err := r.sendq.Shutdown()
 	if err != nil {
 		return fmt.Errorf("failed to shutdown send q %w", err)

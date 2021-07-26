@@ -18,7 +18,7 @@ import (
 const RequestRecommendedCommandName = "request"
 
 type RequestOptions struct {
-	requestor        *requestor.Requestor
+	requestor        *requestor.Requester
 	amqpURI          string
 	sendQName        string
 	sendExchangeName string
@@ -88,7 +88,7 @@ func (ro *RequestOptions) Validate() (err error) {
 
 func (ro *RequestOptions) Run() (err error) {
 	klog.V(2).Infof("initializing requestor")
-	nro := requestor.NewRequestorOptions{
+	nro := requestor.NewRequesterOptions{
 		AMQPURI:          ro.amqpURI,
 		SendQueueName:    ro.sendQName,
 		ExchangeName:     ro.sendExchangeName,
@@ -98,12 +98,12 @@ func (ro *RequestOptions) Run() (err error) {
 		Target:           ro.target,
 		SetupScript:      ro.setupScript,
 		RunScript:        ro.runScript,
-		RecieveQueueName: ro.rcvIdent,
+		ReceiveQueueName: ro.rcvIdent,
 		RunScriptURL:     ro.runScriptURL,
 		MainBranch:       ro.mainBranch,
 		JenkinsProject:   ro.jenkinsProject,
 	}
-	ro.requestor = requestor.NewRequestor(&nro)
+	ro.requestor = requestor.NewRequester(&nro)
 	klog.V(4).Infof("requester looks like %#v", ro.requestor)
 	err = ro.requestor.Run()
 	if err != nil {

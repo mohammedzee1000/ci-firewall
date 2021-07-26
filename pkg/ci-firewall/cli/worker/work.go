@@ -165,7 +165,7 @@ func (wo *WorkOptions) Run() (err error) {
 	}
 	nl.ProcessNodeGroup(wo.processNodeGroup)
 	klog.V(2).Infof("initializing worker")
-	woo := &worker.WorkerOptions{
+	woo := &worker.NewWorkerOptions{
 		AMQPURI:               wo.amqpURI,
 		JenkinsURL:            wo.jenkinsURL,
 		JenkinsUser:           wo.jenkinsUser,
