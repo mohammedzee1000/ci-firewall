@@ -11,8 +11,8 @@ import (
 )
 
 type Requester struct {
-	sendq            *queue.JMSAMQPQueue
-	rcvq             *queue.AMQPQueue
+	sendQueue        *queue.JMSAMQPQueue
+	receiveQueue     *queue.AMQPQueue
 	jenkinsBuild     int
 	repoURL          string
 	kind             string
@@ -44,8 +44,8 @@ type NewRequesterOptions struct {
 
 func NewRequester(nro *NewRequesterOptions) *Requester {
 	r := &Requester{
-		sendq:            queue.NewJMSAMQPQueue(nro.AMQPURI, nro.SendQueueName, nro.ExchangeName, nro.Topic),
-		rcvq:             queue.NewAMQPQueue(nro.AMQPURI, nro.ReceiveQueueName),
+		sendQueue:        queue.NewJMSAMQPQueue(nro.AMQPURI, nro.SendQueueName, nro.ExchangeName, nro.Topic),
+		receiveQueue:     queue.NewAMQPQueue(nro.AMQPURI, nro.ReceiveQueueName),
 		jenkinsBuild:     -1,
 		repoURL:          nro.RepoURL,
 		kind:             nro.Kind,
@@ -65,13 +65,13 @@ func (r *Requester) initQueues() error {
 	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
-	err := r.sendq.Init()
+	err := r.sendQueue.Init()
 	if err != nil {
 		return fmt.Errorf("failed to initalize send q %w", err)
 	}
-	err = r.rcvq.Init()
+	err = r.receiveQueue.Init()
 	if err != nil {
-		return fmt.Errorf("failed to initialize rcvq %w", err)
+		return fmt.Errorf("failed to initialize receiveQueue %w", err)
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func (r *Requester) sendBuildRequest() error {
 	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.receiveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
 	klog.V(2).Infof("sending remote build request")
 	klog.V(4).Infof("remote build request: %#v", rbr)
-	err = r.sendq.Publish(rbr)
+	err = r.sendQueue.Publish(rbr)
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}
@@ -90,7 +90,7 @@ func (r *Requester) sendBuildRequest() error {
 
 func (r *Requester) consumeMessages() error {
 	klog.V(2).Infof("listening on rcv queue %s for messages from worker")
-	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
+	err := r.receiveQueue.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
 		for d := range deliveries {
 			klog.V(2).Infof("received message from worker")
@@ -202,11 +202,11 @@ func (r *Requester) Done() chan error {
 }
 
 func (r *Requester) ShutDown() error {
-	err := r.sendq.Shutdown()
+	err := r.sendQueue.Shutdown()
 	if err != nil {
 		return fmt.Errorf("failed to shutdown send q %w", err)
 	}
-	err = r.rcvq.Shutdown(true)
+	err = r.receiveQueue.Shutdown(true)
 	if err != nil {
 		return fmt.Errorf("failed to shutdown rcv q %w", err)
 	}
