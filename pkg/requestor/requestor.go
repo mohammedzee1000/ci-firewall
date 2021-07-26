@@ -26,21 +26,37 @@ type Requestor struct {
 	jenkinsProject   string
 }
 
-func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch, jenkinsProject string) *Requestor {
+type NewRequestorOptions struct {
+	AMQPURI          string
+	SendQueueName    string
+	ExchangeName     string
+	Topic            string
+	RepoURL          string
+	Kind             string
+	Target           string
+	SetupScript      string
+	RunScript        string
+	RecieveQueueName string
+	RunScriptURL     string
+	MainBranch       string
+	JenkinsProject   string
+}
+
+func NewRequestor(nro *NewRequestorOptions) *Requestor {
 	r := &Requestor{
-		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
-		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
+		sendq:            queue.NewJMSAMQPQueue(nro.AMQPURI, nro.SendQueueName, nro.ExchangeName, nro.Topic),
+		rcvq:             queue.NewAMQPQueue(nro.AMQPURI, nro.RecieveQueueName),
 		jenkinsBuild:     -1,
-		repoURL:          repoURL,
-		kind:             kind,
-		target:           target,
-		runscript:        runscript,
-		recieveQueueName: recieveQueueName,
-		setupScript:      setupScript,
-		runScriptURL:     runScriptURL,
-		mainBranch:       mainBranch,
+		repoURL:          nro.RepoURL,
+		kind:             nro.Kind,
+		target:           nro.Target,
+		runscript:        nro.RunScript,
+		recieveQueueName: nro.RecieveQueueName,
+		setupScript:      nro.SetupScript,
+		runScriptURL:     nro.RunScriptURL,
+		mainBranch:       nro.MainBranch,
 		done:             make(chan error),
-		jenkinsProject:   jenkinsProject,
+		jenkinsProject:   nro.JenkinsProject,
 	}
 	return r
 }
@@ -91,7 +107,7 @@ func (r *Requestor) consumeMessages() error {
 					//process build or cancel message, only if the message build > current jenkins build
 					if m.IsBuild() {
 						klog.V(2).Infof("received build message")
-						bm := messages.NewBuildMessage(-1,"")
+						bm := messages.NewBuildMessage(-1, "")
 						err1 = json.Unmarshal(d.Body, bm)
 						klog.V(4).Infof("received build message %#v", bm)
 						if err1 != nil {

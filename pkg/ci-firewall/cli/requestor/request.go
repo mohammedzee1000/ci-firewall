@@ -88,21 +88,22 @@ func (ro *RequestOptions) Validate() (err error) {
 
 func (ro *RequestOptions) Run() (err error) {
 	klog.V(2).Infof("initializing requestor")
-	ro.requestor = requestor.NewRequestor(
-		ro.amqpURI,
-		ro.sendQName,
-		ro.sendExchangeName,
-		ro.sendTopic,
-		ro.repoURL,
-		ro.kind,
-		ro.target,
-		ro.setupScript,
-		ro.runScript,
-		ro.rcvIdent,
-		ro.runScriptURL,
-		ro.mainBranch,
-		ro.jenkinsProject,
-	)
+	nro := requestor.NewRequestorOptions{
+		AMQPURI:          ro.amqpURI,
+		SendQueueName:    ro.sendQName,
+		ExchangeName:     ro.sendExchangeName,
+		Topic:            ro.sendTopic,
+		RepoURL:          ro.repoURL,
+		Kind:             ro.kind,
+		Target:           ro.target,
+		SetupScript:      ro.setupScript,
+		RunScript:        ro.runScript,
+		RecieveQueueName: ro.rcvIdent,
+		RunScriptURL:     ro.runScriptURL,
+		MainBranch:       ro.mainBranch,
+		JenkinsProject:   ro.jenkinsProject,
+	}
+	ro.requestor = requestor.NewRequestor(&nro)
 	klog.V(4).Infof("requester looks like %#v", ro.requestor)
 	err = ro.requestor.Run()
 	if err != nil {

@@ -43,6 +43,7 @@ type WorkOptions struct {
 	retryLoopCount   int
 	retryLoopBackoff time.Duration
 	processNodeGroup string
+	redactExceptions []string
 }
 
 func NewWorkOptions() *WorkOptions {
@@ -164,11 +165,29 @@ func (wo *WorkOptions) Run() (err error) {
 	}
 	nl.ProcessNodeGroup(wo.processNodeGroup)
 	klog.V(2).Infof("initializing worker")
-	wo.worker = worker.NewWorker(
-		wo.amqpURI, wo.jenkinsURL, wo.jenkinsUser, wo.jenkinsPassword, wo.jenkinsProject, wo.cimsgenv,
-		wo.cimsg, wo.envVars, wo.jenkinsBuild, wo.streambufferSize, nl, wo.final, wo.tags, wo.stripAnsiColor,
-		true, wo.gitUser, wo.gitEmail, wo.retryLoopCount, wo.retryLoopBackoff,
-	)
+	woo := &worker.WorkerOptions{
+		AMQPURI:               wo.amqpURI,
+		JenkinsURL:            wo.jenkinsURL,
+		JenkinsUser:           wo.jenkinsUser,
+		JenkinsPassword:       wo.jenkinsPassword,
+		JenkinsProject:        wo.jenkinsProject,
+		CIMessageEnv:          wo.cimsgenv,
+		CIMessage:             wo.cimsg,
+		EnvVars:               wo.envVars,
+		JenkinsBuild:          wo.jenkinsBuild,
+		PrintStreamBufferSize: wo.streambufferSize,
+		SSHNodes:              nl,
+		Final:                 wo.final,
+		Tags:                  wo.tags,
+		StripANSIColor:        wo.stripAnsiColor,
+		Redact:                wo.redact,
+		GitUser:               wo.gitUser,
+		GitEmail:              wo.gitEmail,
+		RetryLoopCount:        wo.retryLoopCount,
+		RetryLoopBackOff:      wo.retryLoopBackoff,
+		RedactExceptions:      wo.redactExceptions,
+	}
+	wo.worker = worker.NewWorker(woo)
 	success, err := wo.worker.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run worker %w", err)
@@ -209,8 +228,9 @@ func NewWorkCmd(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.gitUser, "gituser", "", "The git user you want to configure for repo")
 	cmd.Flags().StringVar(&o.gitEmail, "gitemail", "", "The email of git user you want to configure on repo")
 	cmd.Flags().IntVar(&o.retryLoopCount, "retryloopcount", 3, "The number of times we retry command if it fails. Defaults to 3")
-	cmd.Flags().DurationVar(&o.retryLoopBackoff, "retryloopbackoff", 10 * time.Second, "The base amount of time to back off before retry on command execution due to execution errors. Defaults to 10 seconds. Actual backoff will be currentcount * backoff duration")
+	cmd.Flags().DurationVar(&o.retryLoopBackoff, "retryloopbackoff", 10*time.Second, "The base amount of time to back off before retry on command execution due to execution errors. Defaults to 10 seconds. Actual backoff will be currentcount * backoff duration")
 	cmd.Flags().StringVar(&o.processNodeGroup, "processnodegroup", "", "The logic to be used to process node groups. Defaults to \"\" which means no processing")
+	cmd.Flags().StringArrayVar(&o.redactExceptions, "redactexception", []string{"openshift"}, "The list of strings to not redact in logs (even if passed as string)")
 	genericclioptions.AddStripANSIColorFlag(cmd, &o.stripAnsiColor)
 	return cmd
 }

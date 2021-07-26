@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	NodeBaseOS = "BASE_OS"
-	NodeArch   = "ARCH"
+	NodeBaseOS                 = "BASE_OS"
+	NodeArch                   = "ARCH"
 	NodeGroupRandomOnePerGroup = "random-one-per-group"
 )
 

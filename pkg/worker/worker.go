@@ -45,43 +45,68 @@ type Worker struct {
 	filterfunc       func(params map[string]string) bool
 	retryLoopCount   int
 	retryLoopBackOff time.Duration
+	redactExceptions []string
+}
+
+type WorkerOptions struct {
+	AMQPURI               string
+	JenkinsURL            string
+	JenkinsUser           string
+	JenkinsPassword       string
+	JenkinsProject        string
+	CIMessageEnv          string
+	CIMessage             *messages.RemoteBuildRequestMessage
+	EnvVars               map[string]string
+	JenkinsBuild          int
+	PrintStreamBufferSize int
+	SSHNodes              *node.NodeList
+	Final                 bool
+	Tags                  []string
+	StripANSIColor        bool
+	Redact                bool
+	GitUser               string
+	GitEmail              string
+	RetryLoopCount        int
+	RetryLoopBackOff      time.Duration
+	RedactExceptions      []string
 }
 
 //NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
-//Instead cimsg must be provided manually(see readme). amqpURI is full uri (including username and password) of rabbitmq server.
+//Instead cimsg must be provided manually(see readme). AMQPURI is full uri (including username and password) of rabbitmq server.
 //jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject are info related to jenkins (robot account is used for cancelling
 //older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
 //and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
 //number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
-func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string, retryLoopCount int, retryLoopBackoff time.Duration) *Worker {
+func NewWorker(wo *WorkerOptions) *Worker {
 	w := &Worker{
 		rcvq:             nil,
-		cimsg:            cimsg,
-		jenkinsProject:   jenkinsProject,
-		jenkinsBuild:     jenkinsBuild,
-		jenkinsURL:       jenkinsURL,
-		jenkinsUser:      jenkinsUser,
-		jenkinsPassword:  jenkinsPassword,
-		envVars:          envVars,
+		cimsg:            wo.CIMessage,
+		jenkinsProject:   wo.JenkinsProject,
+		jenkinsBuild:     wo.JenkinsBuild,
+		jenkinsURL:       wo.JenkinsURL,
+		jenkinsUser:      wo.JenkinsUser,
+		jenkinsPassword:  wo.JenkinsPassword,
+		envVars:          wo.EnvVars,
 		repoDir:          "repo",
-		sshNodes:         sshNodes,
-		final:            final,
-		tags:             tags,
-		stripansicolor:   stripANSIColor,
-		redact:           redact,
-		cimsgenv:         cimsgenv,
-		gitUser:          gitUser,
-		gitEmail:         gitEmail,
-		retryLoopCount:   retryLoopCount,
-		retryLoopBackOff: retryLoopBackoff,
+		sshNodes:         wo.SSHNodes,
+		final:            wo.Final,
+		tags:             wo.Tags,
+		stripansicolor:   wo.StripANSIColor,
+		redact:           wo.Redact,
+		redactExceptions: wo.RedactExceptions,
+		cimsgenv:         wo.CIMessageEnv,
+		gitUser:          wo.GitUser,
+		gitEmail:         wo.GitEmail,
+		retryLoopCount:   wo.RetryLoopCount,
+		retryLoopBackOff: wo.RetryLoopBackOff,
 	}
-	if amqpURI != "" {
-		w.rcvq = queue.NewAMQPQueue(amqpURI, cimsg.RcvIdent)
+	if wo.AMQPURI != "" {
+		w.rcvq = queue.NewAMQPQueue(wo.AMQPURI, wo.CIMessage.RcvIdent)
 	}
 	klog.V(2).Infof("setting script identity")
-	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", jenkinsProject, cimsg.Kind, cimsg.Target))
+	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", wo.JenkinsProject, wo.CIMessage.Kind, wo.CIMessage.Target))
 	klog.V(2).Infof("initializing printstreambuffer and print and stream logs")
-	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, psbsize, w.jenkinsBuild, w.jenkinsProject, w.envVars, w.redact)
+	w.psb = printstreambuffer.NewPrintStreamBuffer(w.rcvq, wo.PrintStreamBufferSize, w.jenkinsBuild, w.jenkinsProject, w.envVars, w.redact, []string{})
 	return w
 }
 
@@ -238,7 +263,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 						break
 					}
 					w.printAndStreamLog(ctags, data)
-					time.Sleep(25*time.Millisecond)
+					time.Sleep(25 * time.Millisecond)
 				}
 				done <- nil
 			}(done)
@@ -509,7 +534,7 @@ func (w *Worker) Run() (bool, error) {
 			if exists1 {
 				log.Fatalf("found newer build, cancelling current build")
 			}
-			time.Sleep(2*time.Minute)
+			time.Sleep(2 * time.Minute)
 		}
 	}()
 	if err = w.cleanupOldBuilds(); err != nil {

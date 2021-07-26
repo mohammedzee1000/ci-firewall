@@ -9,8 +9,8 @@ const (
 )
 
 type Message struct {
-	Kind  string `json:"Kind"`
-	Build int    `json:"Build"`
+	Kind           string `json:"Kind"`
+	Build          int    `json:"Build"`
 	JenkinsProject string `json:"JenkinsProject"`
 }
 
@@ -90,7 +90,7 @@ type CancelMessage struct {
 	*Message
 }
 
-func NewCancelMessage(build int, jenkinsProject string) *CancelMessage  {
+func NewCancelMessage(build int, jenkinsProject string) *CancelMessage {
 	return &CancelMessage{
 		Message: newMessage(KindCancel, build, jenkinsProject),
 	}
