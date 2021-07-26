@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s.io/klog/v2"
+	"log"
+	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
@@ -15,7 +17,7 @@ type Requester struct {
 	receiveQueue     *queue.AMQPQueue
 	jenkinsBuild     int
 	repoURL          string
-	kind             string
+	kind             messages.RequestType
 	target           string
 	runscript        string
 	setupScript      string
@@ -24,6 +26,7 @@ type Requester struct {
 	mainBranch       string
 	done             chan error
 	jenkinsProject   string
+	timeout          time.Duration
 }
 
 type NewRequesterOptions struct {
@@ -32,7 +35,7 @@ type NewRequesterOptions struct {
 	ExchangeName     string
 	Topic            string
 	RepoURL          string
-	Kind             string
+	Kind             messages.RequestType
 	Target           string
 	SetupScript      string
 	RunScript        string
@@ -40,6 +43,7 @@ type NewRequesterOptions struct {
 	RunScriptURL     string
 	MainBranch       string
 	JenkinsProject   string
+	Timeout          time.Duration
 }
 
 func NewRequester(nro *NewRequesterOptions) *Requester {
@@ -57,12 +61,14 @@ func NewRequester(nro *NewRequesterOptions) *Requester {
 		mainBranch:       nro.MainBranch,
 		done:             make(chan error),
 		jenkinsProject:   nro.JenkinsProject,
+		timeout:          nro.Timeout,
 	}
 	return r
 }
 
 func (r *Requester) initQueues() error {
-	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
+	k := r.kind
+	if k != messages.RequestTypePR && k != messages.RequestTypeBranch && k != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
 	err := r.sendQueue.Init()
@@ -88,7 +94,7 @@ func (r *Requester) sendBuildRequest() error {
 	return nil
 }
 
-func (r *Requester) consumeMessages() error {
+func (r *Requester) consumeReplies() error {
 	klog.V(2).Infof("listening on rcv queue %s for messages from worker")
 	err := r.receiveQueue.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
@@ -190,18 +196,35 @@ func (r *Requester) Run() error {
 	if err != nil {
 		return err
 	}
-	err = r.consumeMessages()
+	err = r.consumeReplies()
 	if err != nil {
 		return err
+	}
+	klog.V(2).Infof("waiting for requester to ext")
+	klog.V(3).Infof("requester will timeout after %s", r.timeout)
+	select {
+	case done := <-r.done:
+		if done == nil {
+			log.Println("Tests succeeded, see logs above ^")
+			if err := r.shutDown(); err != nil {
+				return fmt.Errorf("error during shutdown: %w", err)
+			}
+		} else {
+			if err := r.shutDown(); err != nil {
+				return fmt.Errorf("error during shutdown: %w", err)
+			}
+			return fmt.Errorf("failed due to err %w", done)
+		}
+	case <-time.After(r.timeout):
+		if err := r.shutDown(); err != nil {
+			return fmt.Errorf("error during shutdown: %w", err)
+		}
+		return fmt.Errorf("timed out")
 	}
 	return nil
 }
 
-func (r *Requester) Done() chan error {
-	return r.done
-}
-
-func (r *Requester) ShutDown() error {
+func (r *Requester) shutDown() error {
 	err := r.sendQueue.Shutdown()
 	if err != nil {
 		return fmt.Errorf("failed to shutdown send q %w", err)

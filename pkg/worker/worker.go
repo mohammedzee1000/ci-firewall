@@ -101,7 +101,7 @@ func NewWorker(wo *NewWorkerOptions) *Worker {
 		retryLoopBackOff: wo.RetryLoopBackOff,
 	}
 	if wo.AMQPURI != "" {
-		w.receiveQueue = queue.NewAMQPQueue(wo.AMQPURI, wo.CIMessage.RcvIdent)
+		w.receiveQueue = queue.NewAMQPQueue(wo.AMQPURI, wo.CIMessage.ReceiveQueueName)
 	}
 	klog.V(2).Infof("setting script identity")
 	w.envVars[scriptIdentity] = strings.ToLower(fmt.Sprintf("%s%s%s", wo.JenkinsProject, wo.CIMessage.Kind, wo.CIMessage.Target))
@@ -118,7 +118,7 @@ func (w *Worker) initFilterFunc() {
 				klog.V(3).Infof("parsing ci message for build being looked at")
 				jcim := messages.NewRemoteBuildRequestMessage("", "", "", "", "", "", "", "", "")
 				json.Unmarshal([]byte(v), jcim)
-				if jcim.Kind == w.ciMessage.Kind && jcim.RcvIdent == w.ciMessage.RcvIdent && jcim.RepoURL == w.ciMessage.RepoURL && jcim.Target == w.ciMessage.Target && jcim.RunScript == w.ciMessage.RunScript && jcim.SetupScript == w.ciMessage.SetupScript && jcim.RunScriptURL == w.ciMessage.RunScriptURL && jcim.MainBranch == w.ciMessage.MainBranch && jcim.JenkinsProject == w.ciMessage.JenkinsProject {
+				if jcim.Kind == w.ciMessage.Kind && jcim.ReceiveQueueName == w.ciMessage.ReceiveQueueName && jcim.RepoURL == w.ciMessage.RepoURL && jcim.Target == w.ciMessage.Target && jcim.RunScript == w.ciMessage.RunScript && jcim.SetupScript == w.ciMessage.SetupScript && jcim.RunScriptURL == w.ciMessage.RunScriptURL && jcim.MainBranch == w.ciMessage.MainBranch && jcim.JenkinsProject == w.ciMessage.JenkinsProject {
 					return true
 				}
 			}
@@ -201,9 +201,9 @@ func (w *Worker) printAndStreamInfo(tags []string, info string) error {
 	return w.psb.Print(toprint, true, w.stripANSIColor)
 }
 
-func (w *Worker) printAndStreamErrors(tags []string, errlist []error) error {
-	errMsg := "List of errors below:\n\n"
-	for _, e := range errlist {
+func (w *Worker) printAndStreamErrors(tags []string, errList []error) error {
+	errMsg := fmt.Sprintf("%v List of errors below:\n\n", tags)
+	for _, e := range errList {
 		errMsg = fmt.Sprintf(" - %s\n", e.Error())
 	}
 	return w.psb.Print(errMsg, true, w.stripANSIColor)
@@ -215,12 +215,12 @@ func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
-func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
+func (w *Worker) runCommand(oldSuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
 	ctags := ex.GetTags()
 	var errList []error
 	success := true
 	w.printAndStreamCommand(ctags, cmd)
-	if oldsuccess {
+	if oldSuccess {
 		klog.V(4).Infof("injected env vars look like %#v", w.envVars)
 		retryBackOff := w.retryLoopBackOff
 		//keep retrying for ever incrementing retry (internal break conditions present)
@@ -295,8 +295,8 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 	return false, nil
 }
 
-func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) (bool, error) {
-	if oldstatus {
+func (w *Worker) setupGit(oldStatus bool, ex executor.Executor, repoDir string) (bool, error) {
+	if oldStatus {
 		var status bool
 		var err error
 		if w.gitUser != "" && w.gitEmail != "" {
@@ -319,12 +319,12 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	var err error
 	var chkout string
 	klog.V(2).Infof("setting up tests")
-	//Remove any existing workdir of same name, ussually due to termination of jobs
+	//Remove any existing workdir of same name, usually due to termination of jobs
 	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
 	if err != nil {
 		w.handleCommandError(ex.GetTags(), err)
 	}
-	//create new workdir and repodir
+	//create new workdir and repo directory
 	status, err = w.runCommand(status, ex, "", []string{"mkdir", "-p", repoDir})
 	if err != nil {
 		return false, fmt.Errorf("failed to create workdir %w", err)
@@ -418,11 +418,11 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 }
 
 //tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
-//if oldsuccess is false, then this is skipped
-func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir string) (bool, error) {
+//if oldSuccess is false, then this is skipped
+func (w *Worker) tearDownTests(oldSuccess bool, ex executor.Executor, workDir string) (bool, error) {
 	klog.V(2).Infof("tearing down test env")
-	if oldsuccess {
-		status, err := w.runCommand(oldsuccess, ex, "", []string{"rm", "-rf", workDir})
+	if oldSuccess {
+		status, err := w.runCommand(oldSuccess, ex, "", []string{"rm", "-rf", workDir})
 		if err != nil {
 			return false, fmt.Errorf("failed to remove workdir %w", err)
 		}
@@ -437,7 +437,7 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 func (w *Worker) test(nd *node.Node) (bool, error) {
 	var err error
 	var ex executor.Executor
-	baseWorkDir := util.GetBaseWorkDir(w.ciMessage.RcvIdent)
+	baseWorkDir := util.GetBaseWorkDir(w.ciMessage.ReceiveQueueName)
 	instanceWorkDir := filepath.Join(baseWorkDir, util.GetInstanceWorkdirName())
 	repoDir := filepath.Join(instanceWorkDir, w.repoDir)
 	if nd != nil {
@@ -468,7 +468,7 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	return status, nil
 }
 
-//run calls test by iterating over sshnodes or calls test without a node if no sshnodes
+//run calls test by iterating over ssh nodes or calls test without a node if no ssh nodes
 //returns success and error
 func (w *Worker) run() (bool, error) {
 	status := true
