@@ -22,7 +22,7 @@ func NewSendQueueCreateOptions() *SenqQCreateOptions {
 }
 
 func (sqco *SenqQCreateOptions) Complete(name string, cmd *cobra.Command, args []string) error {
-	return  nil
+	return nil
 }
 
 func (sqco *SenqQCreateOptions) Validate() (err error) {
@@ -53,10 +53,10 @@ func (sqco *SenqQCreateOptions) Run() (err error) {
 	return nil
 }
 
-func NewCmdSendQueueCreate(name, fullname string) *cobra.Command  {
+func NewCmdSendQueueCreate(name, fullname string) *cobra.Command {
 	o := NewSendQueueCreateOptions()
 	cmd := &cobra.Command{
-		Use: name,
+		Use:   name,
 		Short: "initialize a send queue",
 		Run: func(cmd *cobra.Command, args []string) {
 			genericclioptions.GenericRun(o, cmd, args)

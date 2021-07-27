@@ -4,77 +4,99 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s.io/klog/v2"
+	"log"
+	"time"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/messages"
 	"github.com/mohammedzee1000/ci-firewall/pkg/queue"
 	"github.com/streadway/amqp"
 )
 
-type Requestor struct {
-	sendq            *queue.JMSAMQPQueue
-	rcvq             *queue.AMQPQueue
+type Requester struct {
+	sendQueue        *queue.JMSAMQPQueue
+	receiveQueue     *queue.AMQPQueue
 	jenkinsBuild     int
 	repoURL          string
-	kind             string
+	kind             messages.RequestType
 	target           string
 	runscript        string
 	setupScript      string
-	recieveQueueName string
+	receiveQueueName string
 	runScriptURL     string
 	mainBranch       string
 	done             chan error
 	jenkinsProject   string
+	timeout          time.Duration
 }
 
-func NewRequestor(amqpURI, sendqName, exchangeName, topic, repoURL, kind, target, setupScript, runscript, recieveQueueName, runScriptURL, mainBranch, jenkinsProject string) *Requestor {
-	r := &Requestor{
-		sendq:            queue.NewJMSAMQPQueue(amqpURI, sendqName, exchangeName, topic),
-		rcvq:             queue.NewAMQPQueue(amqpURI, recieveQueueName),
+type NewRequesterOptions struct {
+	AMQPURI          string
+	SendQueueName    string
+	ExchangeName     string
+	Topic            string
+	RepoURL          string
+	Kind             messages.RequestType
+	Target           string
+	SetupScript      string
+	RunScript        string
+	ReceiveQueueName string
+	RunScriptURL     string
+	MainBranch       string
+	JenkinsProject   string
+	Timeout          time.Duration
+}
+
+func NewRequester(nro *NewRequesterOptions) *Requester {
+	r := &Requester{
+		sendQueue:        queue.NewJMSAMQPQueue(nro.AMQPURI, nro.SendQueueName, nro.ExchangeName, nro.Topic),
+		receiveQueue:     queue.NewAMQPQueue(nro.AMQPURI, nro.ReceiveQueueName),
 		jenkinsBuild:     -1,
-		repoURL:          repoURL,
-		kind:             kind,
-		target:           target,
-		runscript:        runscript,
-		recieveQueueName: recieveQueueName,
-		setupScript:      setupScript,
-		runScriptURL:     runScriptURL,
-		mainBranch:       mainBranch,
+		repoURL:          nro.RepoURL,
+		kind:             nro.Kind,
+		target:           nro.Target,
+		runscript:        nro.RunScript,
+		receiveQueueName: nro.ReceiveQueueName,
+		setupScript:      nro.SetupScript,
+		runScriptURL:     nro.RunScriptURL,
+		mainBranch:       nro.MainBranch,
 		done:             make(chan error),
-		jenkinsProject:   jenkinsProject,
+		jenkinsProject:   nro.JenkinsProject,
+		timeout:          nro.Timeout,
 	}
 	return r
 }
 
-func (r *Requestor) initQueus() error {
-	if r.kind != messages.RequestTypePR && r.kind != messages.RequestTypeBranch && r.kind != messages.RequestTypeTag {
+func (r *Requester) initQueues() error {
+	k := r.kind
+	if k != messages.RequestTypePR && k != messages.RequestTypeBranch && k != messages.RequestTypeTag {
 		return fmt.Errorf("kind should be %s, %s or %s", messages.RequestTypePR, messages.RequestTypeBranch, messages.RequestTypeTag)
 	}
-	err := r.sendq.Init()
+	err := r.sendQueue.Init()
 	if err != nil {
 		return fmt.Errorf("failed to initalize send q %w", err)
 	}
-	err = r.rcvq.Init()
+	err = r.receiveQueue.Init()
 	if err != nil {
-		return fmt.Errorf("failed to initialize rcvq %w", err)
+		return fmt.Errorf("failed to initialize receiveQueue %w", err)
 	}
 	return nil
 }
 
-func (r *Requestor) sendBuildRequest() error {
+func (r *Requester) sendBuildRequest() error {
 	var err error
-	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.recieveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
+	rbr := messages.NewRemoteBuildRequestMessage(r.repoURL, r.kind, r.target, r.setupScript, r.runscript, r.receiveQueueName, r.runScriptURL, r.mainBranch, r.jenkinsProject)
 	klog.V(2).Infof("sending remote build request")
 	klog.V(4).Infof("remote build request: %#v", rbr)
-	err = r.sendq.Publish(rbr)
+	err = r.sendQueue.Publish(rbr)
 	if err != nil {
 		return fmt.Errorf("failed to send build request %w", err)
 	}
 	return nil
 }
 
-func (r *Requestor) consumeMessages() error {
+func (r *Requester) consumeReplies() error {
 	klog.V(2).Infof("listening on rcv queue %s for messages from worker")
-	err := r.rcvq.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
+	err := r.receiveQueue.Consume(func(deliveries <-chan amqp.Delivery, done chan error) {
 		success := true
 		for d := range deliveries {
 			klog.V(2).Infof("received message from worker")
@@ -91,7 +113,7 @@ func (r *Requestor) consumeMessages() error {
 					//process build or cancel message, only if the message build > current jenkins build
 					if m.IsBuild() {
 						klog.V(2).Infof("received build message")
-						bm := messages.NewBuildMessage(-1,"")
+						bm := messages.NewBuildMessage(-1, "")
 						err1 = json.Unmarshal(d.Body, bm)
 						klog.V(4).Infof("received build message %#v", bm)
 						if err1 != nil {
@@ -142,7 +164,7 @@ func (r *Requestor) consumeMessages() error {
 						if success {
 							done <- nil
 						} else {
-							done <- fmt.Errorf("Failed the test, see logs above ^")
+							done <- fmt.Errorf("failed the test, see logs above ^")
 						}
 						return
 					} else {
@@ -153,7 +175,10 @@ func (r *Requestor) consumeMessages() error {
 				klog.V(2).Infof("skipping message as job name of message did not match job name expected by requester")
 				klog.V(4).Infof("want %s, got %s", r.jenkinsProject, m.JenkinsProject)
 			}
-			d.Ack(false)
+			err := d.Ack(false)
+			if err != nil {
+				done <- fmt.Errorf("unable to ack msg %w", err)
+			}
 		}
 	}, r.done)
 	if err != nil {
@@ -162,8 +187,8 @@ func (r *Requestor) consumeMessages() error {
 	return nil
 }
 
-func (r *Requestor) Run() error {
-	err := r.initQueus()
+func (r *Requester) Run() error {
+	err := r.initQueues()
 	if err != nil {
 		return err
 	}
@@ -171,23 +196,40 @@ func (r *Requestor) Run() error {
 	if err != nil {
 		return err
 	}
-	err = r.consumeMessages()
+	err = r.consumeReplies()
 	if err != nil {
 		return err
+	}
+	klog.V(2).Infof("waiting for requester to ext")
+	klog.V(3).Infof("requester will timeout after %s", r.timeout)
+	select {
+	case done := <-r.done:
+		if done == nil {
+			log.Println("Tests succeeded, see logs above ^")
+			if err := r.shutDown(); err != nil {
+				return fmt.Errorf("error during shutdown: %w", err)
+			}
+		} else {
+			if err := r.shutDown(); err != nil {
+				return fmt.Errorf("error during shutdown: %w", err)
+			}
+			return fmt.Errorf("failed due to err %w", done)
+		}
+	case <-time.After(r.timeout):
+		if err := r.shutDown(); err != nil {
+			return fmt.Errorf("error during shutdown: %w", err)
+		}
+		return fmt.Errorf("timed out")
 	}
 	return nil
 }
 
-func (r *Requestor) Done() chan error {
-	return r.done
-}
-
-func (r *Requestor) ShutDown() error {
-	err := r.sendq.Shutdown()
+func (r *Requester) shutDown() error {
+	err := r.sendQueue.Shutdown()
 	if err != nil {
 		return fmt.Errorf("failed to shutdown send q %w", err)
 	}
-	err = r.rcvq.Shutdown(true)
+	err = r.receiveQueue.Shutdown(true)
 	if err != nil {
 		return fmt.Errorf("failed to shutdown rcv q %w", err)
 	}

@@ -30,7 +30,7 @@ func NewJMSAMQPQueue(amqpURI, queueName, exchangeName, topic string) *JMSAMQPQue
 
 func (jaq *JMSAMQPQueue) Init() error {
 	var err error
-	klog.V(2).Infof("Initializing jms queue %s on exchange using routing key %s on provided amqp server", jaq.queueName,jaq.exchangeName, jaq.topic)
+	klog.V(2).Infof("Initializing jms queue %s on exchange using routing key %s on provided amqp server", jaq.queueName, jaq.exchangeName, jaq.topic)
 	klog.V(3).Infof("Connecting to amqp server %s", jaq.url)
 	jaq.conn, err = amqp.Dial(jaq.url)
 	if err != nil {

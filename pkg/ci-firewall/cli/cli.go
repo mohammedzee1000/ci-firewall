@@ -23,7 +23,7 @@ func ciFirewallCmd(name, fullname string) *cobra.Command {
 		Long:  "ci-firewall",
 	}
 	cmd.AddCommand(
-		requestor.NewCmdRequestor(requestor.RequestRecommendedCommandName, util.GetFullName(fullname, requestor.RequestRecommendedCommandName)),
+		requestor.NewCmdRequester(requestor.RequestRecommendedCommandName, util.GetFullName(fullname, requestor.RequestRecommendedCommandName)),
 		worker.NewWorkCmd(worker.WorkRecommendedCommandName, util.GetFullName(fullname, worker.WorkRecommendedCommandName)),
 		version.NewCmdVersion(version.VersionRecommendedCommandName, util.GetFullName(fullname, version.VersionRecommendedCommandName)),
 		toolkit.NewToolkitCommand(toolkit.ToolKitRecommendedCommandName, util.GetFullName(fullname, toolkit.ToolKitRecommendedCommandName)),

@@ -10,17 +10,17 @@ import (
 const NodefileAddNodeRecommendedCommandName = "addnode"
 
 type NodeFileAddNodeOptions struct {
-	nodefile string
-	name string
-	user string
-	address string
-	port int
-	baseos string
-	arch string
-	password string
+	nodefile       string
+	name           string
+	user           string
+	address        string
+	port           int
+	baseos         string
+	arch           string
+	password       string
 	privatekeyfile string
-	tags []string
-	group string
+	tags           []string
+	group          string
 }
 
 func newNodeFileAddNodeOptions() *NodeFileAddNodeOptions {
@@ -65,7 +65,7 @@ func (nfano *NodeFileAddNodeOptions) Run() (err error) {
 func NewCmdNodeFileAddNode(name, fullname string) *cobra.Command {
 	o := newNodeFileAddNodeOptions()
 	cmd := &cobra.Command{
-		Use: name,
+		Use:   name,
 		Short: "add node to node file",
 		Run: func(cmd *cobra.Command, args []string) {
 			genericclioptions.GenericRun(o, cmd, args)

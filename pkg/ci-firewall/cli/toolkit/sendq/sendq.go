@@ -7,19 +7,18 @@ import (
 
 const SendqRecommendedCommandName = "sendq"
 
-func newSendQCommand(name, fullname string) *cobra.Command  {
+func newSendQCommand(name, fullname string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: name,
+		Use:   name,
 		Short: "sendq",
-		Long: "sendq",
+		Long:  "sendq",
 	}
 	cmd.AddCommand(
 		NewCmdSendQueueCreate(SendQueueCreateRecommendedCommandName, util.GetFullName(fullname, SendQueueCreateRecommendedCommandName)),
-		)
-	return  cmd
+	)
+	return cmd
 }
 
 func NewSendQCommand(name, fullname string) *cobra.Command {
 	return newSendQCommand(name, fullname)
 }
-

@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func visitSubCommands(cmd *cobra.Command)  {
+func visitSubCommands(cmd *cobra.Command) {
 	if cmd.HasSubCommands() {
 		for _, it := range cmd.Commands() {
 			visitSubCommands(it)

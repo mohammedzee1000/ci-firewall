@@ -2,7 +2,6 @@ package requestor
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -18,13 +17,14 @@ import (
 const RequestRecommendedCommandName = "request"
 
 type RequestOptions struct {
-	requestor        *requestor.Requestor
+	requester        *requestor.Requester
 	amqpURI          string
 	sendQName        string
 	sendExchangeName string
 	sendTopic        string
 	repoURL          string
-	kind             string
+	kind             messages.RequestType
+	kindVal          string
 	target           string
 	runScript        string
 	setupScript      string
@@ -42,8 +42,10 @@ func NewRequestOptions() *RequestOptions {
 
 func (ro *RequestOptions) Complete(name string, cmd *cobra.Command, args []string) error {
 	klog.V(5).Infof("request options before complete %#v", ro)
-	if ro.kind == "" {
+	if ro.kindVal == "" {
 		ro.kind = messages.RequestTypePR
+	} else {
+		ro.kind = messages.RequestType(ro.kindVal)
 	}
 	if ro.rcvIdent == "" {
 		ro.rcvIdent = fmt.Sprintf("amqp.ci.rcv.%s.%s.%s", ro.jenkinsProject, ro.kind, ro.target)
@@ -87,52 +89,32 @@ func (ro *RequestOptions) Validate() (err error) {
 }
 
 func (ro *RequestOptions) Run() (err error) {
-	klog.V(2).Infof("initializing requestor")
-	ro.requestor = requestor.NewRequestor(
-		ro.amqpURI,
-		ro.sendQName,
-		ro.sendExchangeName,
-		ro.sendTopic,
-		ro.repoURL,
-		ro.kind,
-		ro.target,
-		ro.setupScript,
-		ro.runScript,
-		ro.rcvIdent,
-		ro.runScriptURL,
-		ro.mainBranch,
-		ro.jenkinsProject,
-	)
-	klog.V(4).Infof("requester looks like %#v", ro.requestor)
-	err = ro.requestor.Run()
+	klog.V(2).Infof("initializing requester")
+	nro := requestor.NewRequesterOptions{
+		AMQPURI:          ro.amqpURI,
+		SendQueueName:    ro.sendQName,
+		ExchangeName:     ro.sendExchangeName,
+		Topic:            ro.sendTopic,
+		RepoURL:          ro.repoURL,
+		Kind:             ro.kind,
+		Target:           ro.target,
+		SetupScript:      ro.setupScript,
+		RunScript:        ro.runScript,
+		ReceiveQueueName: ro.rcvIdent,
+		RunScriptURL:     ro.runScriptURL,
+		MainBranch:       ro.mainBranch,
+		JenkinsProject:   ro.jenkinsProject,
+	}
+	ro.requester = requestor.NewRequester(&nro)
+	klog.V(4).Infof("requester looks like %#v", ro.requester)
+	err = ro.requester.Run()
 	if err != nil {
 		return err
-	}
-	klog.V(2).Infof("waiting for requester to ext")
-	klog.V(3).Infof("requester will timeout after %s", ro.timeout)
-	select {
-	case done := <-ro.requestor.Done():
-		if done == nil {
-			log.Println("Tests succeeded, see logs above ^")
-			if err := ro.requestor.ShutDown(); err != nil {
-				return fmt.Errorf("error during shutdown: %w", err)
-			}
-		} else {
-			if err := ro.requestor.ShutDown(); err != nil {
-				return fmt.Errorf("error during shutdown: %w", err)
-			}
-			return fmt.Errorf("failed due to err %w", done)
-		}
-	case <-time.After(ro.timeout):
-		if err := ro.requestor.ShutDown(); err != nil {
-			return fmt.Errorf("error during shutdown: %w", err)
-		}
-		return fmt.Errorf("timed out")
 	}
 	return nil
 }
 
-func NewCmdRequestor(name, fullname string) *cobra.Command {
+func NewCmdRequester(name, fullname string) *cobra.Command {
 	o := NewRequestOptions()
 	cmd := &cobra.Command{
 		Use:   name,
@@ -147,8 +129,8 @@ func NewCmdRequestor(name, fullname string) *cobra.Command {
 	cmd.Flags().StringVar(&o.sendExchangeName, "sendexchange", "amqp.ci.exchange.send", "the name of the exchange tp use for send")
 	cmd.Flags().StringVar(&o.sendTopic, "sendtopic", "amqp.ci.topic.send", "the name of the send topic")
 	cmd.Flags().StringVar(&o.rcvIdent, "rcvident", os.Getenv(messages.RequestParameterRcvQueueName), "the name of the recieve queue")
-	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequesParameterRepoURL), "the url of the repo to clone on jenkins")
-	cmd.Flags().StringVar(&o.kind, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
+	cmd.Flags().StringVar(&o.repoURL, "repourl", os.Getenv(messages.RequestParameterRepoURL), "the url of the repo to clone on jenkins")
+	cmd.Flags().StringVar(&o.kindVal, "kind", os.Getenv(messages.RequestParameterKind), "the kind of build you want to do")
 	cmd.Flags().StringVar(&o.target, "target", os.Getenv(messages.RequestParameterTarget), "the target is based on kind. Can be pr no or branch name or tag name")
 	cmd.Flags().StringVar(&o.runScript, "runscript", os.Getenv(messages.RequestParameterRunScript), "the path of the script to run on jenkins, relative to repo root")
 	cmd.Flags().StringVar(&o.runScriptURL, "runscripturl", "", "the url of remote run script, if any. Must be providede with --runscript as that is what it will be downloaded as")

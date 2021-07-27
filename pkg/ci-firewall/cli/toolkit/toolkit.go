@@ -15,9 +15,9 @@ func NewToolkitCommand(name, fullname string) *cobra.Command {
 
 func newToolKitCommand(name, fullname string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: name,
+		Use:   name,
 		Short: "toolkit",
-		Long: "toolkit",
+		Long:  "toolkit",
 	}
 	cmd.AddCommand(
 		sendq.NewSendQCommand(sendq.SendqRecommendedCommandName, util.GetFullName(fullname, sendq.SendqRecommendedCommandName)),

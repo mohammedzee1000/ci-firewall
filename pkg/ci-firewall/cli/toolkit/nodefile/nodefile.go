@@ -9,9 +9,9 @@ const NodefileRecommendedCommandName = "nodefile"
 
 func newNodeFileCommand(name, fullname string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: name,
+		Use:   name,
 		Short: "nodefile",
-		Long: "nodefile",
+		Long:  "nodefile",
 	}
 	cmd.AddCommand(NewCmdNodeFileAddNode(NodefileAddNodeRecommendedCommandName, util.GetFullName(fullname, NodefileAddNodeRecommendedCommandName)))
 	return cmd
