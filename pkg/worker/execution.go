@@ -65,7 +65,7 @@ func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 }
 
 //runCommand runs cmd on ex the Executor in the workDir and returns success and error
-func (w *Worker) runCommand(oldSuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
+func (w *Worker) runCommand(oldSuccess bool, ex executor.Executor, workDir string, cmd, cleanUpOnFailCmd []string) (bool, error) {
 	ctags := ex.GetTags()
 	var errList []error
 	success := true
@@ -88,11 +88,22 @@ func (w *Worker) runCommand(oldSuccess bool, ex executor.Executor, workDir strin
 				// we want to do retry loop backoff for all attempts greater than one until the last attempt
 				if retry <= w.retryLoopCount {
 					retryBackOff = retryBackOff + w.retryLoopBackOff
-					err := w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
+					err = w.printAndStreamInfo(ctags, fmt.Sprintf("backing of for %s before retrying", retryBackOff))
 					if err != nil {
 						return false, err
 					}
 					time.Sleep(retryBackOff)
+					// if a cleanup command is provided attempt cleanup
+					if len(cleanUpOnFailCmd) > 0 {
+						err = w.printAndStreamInfo(ctags, "cleaning up before retrying")
+						if err != nil {
+							return false, err
+						}
+						s, err := w.runCommand(true, ex, workDir, cleanUpOnFailCmd, []string{})
+						if err != nil || !s {
+							return false, fmt.Errorf("failed cleanup action post fail")
+						}
+					}
 				}
 			}
 			// if the last attempt was done and was not successful, then we have failed
