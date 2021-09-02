@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"k8s.io/klog/v2"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"github.com/mohammedzee1000/ci-firewall/pkg/node"
 	"golang.org/x/crypto/ssh"
@@ -145,7 +146,7 @@ func (ne *NodeSSHExecutor) Wait() (bool, error) {
 		if err, ok := err.(*ssh.ExitError); ok {
 			return false, nil
 		} else {
-			return false, fmt.Errorf("failed to wait ssh command: %w", err)
+			return false, fmt.Errorf("failed to wait ssh command: %s", err.Msg())
 		}
 	}
 	return true, nil

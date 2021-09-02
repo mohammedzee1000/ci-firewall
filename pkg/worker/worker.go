@@ -238,7 +238,7 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 						break
 					}
 					w.printAndStreamLog(ctags, data)
-					time.Sleep(25*time.Millisecond)
+					time.Sleep(25 * time.Millisecond)
 				}
 				done <- nil
 			}(done)
@@ -282,6 +282,9 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 				return false, fmt.Errorf("failed to set git user %w", err)
 			}
 			status, err = w.runCommand(status, ex, repoDir, []string{"git", "config", "user.email", fmt.Sprintf("\"%s\"", w.gitEmail)})
+			if err != nil {
+				return false, fmt.Errorf("failed to set git user %w", err)
+			}
 		}
 	} else {
 		return false, nil
@@ -297,7 +300,13 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	//Remove any existing workdir of same name, ussually due to termination of jobs
 	status, err := w.runCommand(true, ex, "", []string{"rm", "-rf", workDir})
 	if err != nil {
-		w.handleCommandError(ex.GetTags(), err)
+		// if failure occurred due to `Device or resource busy` skip the cleanup
+		if strings.Contains(fmt.Sprint(err), "Device or resource busy") {
+			status = true
+			klog.V(2).Infof("skipping cleanup step")
+		} else {
+			w.handleCommandError(ex.GetTags(), err)
+		}
 	}
 	//create new workdir and repodir
 	status, err = w.runCommand(status, ex, "", []string{"mkdir", "-p", repoDir})
@@ -509,7 +518,7 @@ func (w *Worker) Run() (bool, error) {
 			if exists1 {
 				log.Fatalf("found newer build, cancelling current build")
 			}
-			time.Sleep(2*time.Minute)
+			time.Sleep(2 * time.Minute)
 		}
 	}()
 	if err = w.cleanupOldBuilds(); err != nil {
