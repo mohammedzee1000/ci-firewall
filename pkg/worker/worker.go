@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
