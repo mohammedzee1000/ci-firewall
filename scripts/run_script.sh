@@ -5,8 +5,9 @@ sleep 2
 echo "Some secret env value FOO = $FOO1";
 sleep 2
 echo "Here is an IP: 192.168.122.1";
-for ((i=1; i<=35; i++)); do
-	echo "Counting $i of 35";
-	sleep 2;
-done
 
+# Use seq instead of C-style for loops for robust shell compatibility
+for i in $(seq 1 35); do
+        echo "Counting $i of 35";
+        sleep 2;
+done
