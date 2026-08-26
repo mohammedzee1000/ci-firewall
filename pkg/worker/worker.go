@@ -377,7 +377,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 		}
 		klog.V(2).Infof("adding run script to command")
 		runCmd = fmt.Sprint(runCmd, ". ", w.cimsg.RunScript)
-		runCmd = fmt.Sprintf("\"%s\"", runCmd)
+
 		//2 Download runscript, if provided
 		if w.cimsg.RunScriptURL != "" {
 			klog.V(2).Infof("downloading run script for a url")
@@ -387,7 +387,7 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 			}
 		}
 
-		//3 run run cmd
+		//3 run run cmd (removed extra outer quotes wrapping around runCmd)
 		status, err = w.runCommand(status, ex, repoDir, []string{"sh", "-c", runCmd})
 		if err != nil {
 			return false, fmt.Errorf("failed to run run script")
