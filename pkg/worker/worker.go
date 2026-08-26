@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,7 +23,7 @@ import (
 
 const scriptIdentity = "SCRIPT_IDENTITY"
 
-//Worker works on a request for test build
+// Worker works on a request for test build
 type Worker struct {
 	rcvq             *queue.AMQPQueue
 	jenkinsProject   string
@@ -47,12 +48,12 @@ type Worker struct {
 	retryLoopBackOff time.Duration
 }
 
-//NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
-//Instead cimsg must be provided manually(see readme). amqpURI is full uri (including username and password) of rabbitmq server.
-//jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject are info related to jenkins (robot account is used for cancelling
-//older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
-//and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
-//number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
+// NewWorker creates a new worker struct. if standalone is true, then rabbitmq is not used for communication with requestor.
+// Instead cimsg must be provided manually(see readme). amqpURI is full uri (including username and password) of rabbitmq server.
+// jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject are info related to jenkins (robot account is used for cancelling
+// older builds by matching job parameter cienvmsg). cimsg is parsed CI message. to provide nessasary info to worker and also match
+// and cleanup older jenkins jobs. envVars are envs to be exposed to the setup and run scripts . jenkinsBuild is current jenkins build
+// number. psbSize is max buffer size for PrintStreamBuffer and sshNode is a parsed sshnodefile (see readme)
 func NewWorker(amqpURI, jenkinsURL, jenkinsUser, jenkinsPassword, jenkinsProject string, cimsgenv string, cimsg *messages.RemoteBuildRequestMessage, envVars map[string]string, jenkinsBuild int, psbsize int, sshNodes *node.NodeList, final bool, tags []string, stripANSIColor bool, redact bool, gitUser, gitEmail string, retryLoopCount int, retryLoopBackoff time.Duration) *Worker {
 	w := &Worker{
 		rcvq:             nil,
@@ -124,7 +125,7 @@ func (w *Worker) cleanupOldBuilds() error {
 	return nil
 }
 
-//initQueues initializes rabbitmq queues used by worker. Returns error in case of fail
+// initQueues initializes rabbitmq queues used by worker. Returns error in case of fail
 func (w *Worker) initQueues() error {
 	if w.rcvq != nil {
 		klog.V(2).Infof("initialising queues for worker")
@@ -144,7 +145,7 @@ func (w *Worker) sendCancelMessage() error {
 	return nil
 }
 
-//sendBuildInfo sends information about the build. Returns error in case of fail
+// sendBuildInfo sends information about the build. Returns error in case of fail
 func (w *Worker) sendBuildInfo() error {
 	if w.rcvq != nil {
 		klog.V(2).Infof("publishing build information on rcv queue")
@@ -153,7 +154,7 @@ func (w *Worker) sendBuildInfo() error {
 	return nil
 }
 
-//printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
+// printAndStreamLog prints a the logs to the PrintStreamBuffer. Returns error in case of fail
 func (w *Worker) printAndStreamLog(tags []string, msg string) error {
 	err := w.psb.Print(fmt.Sprintf("%v %s", tags, msg), false, w.stripansicolor)
 	if err != nil {
@@ -170,7 +171,7 @@ func (w *Worker) handleCommandError(tags []string, err error) error {
 	return nil
 }
 
-//printAndStreamInfo prints and streams an info msg
+// printAndStreamInfo prints and streams an info msg
 func (w *Worker) printAndStreamInfo(tags []string, info string) error {
 	toprint := fmt.Sprintf("%v !!!%s!!!\n", tags, info)
 	return w.psb.Print(toprint, true, w.stripansicolor)
@@ -184,12 +185,12 @@ func (w *Worker) printAndStreamErrors(tags []string, errlist []error) error {
 	return w.psb.Print(errMsg, true, w.stripansicolor)
 }
 
-//printAndStreamCommand print and streams a command. Returns error in case of fail
+// printAndStreamCommand print and streams a command. Returns error in case of fail
 func (w *Worker) printAndStreamCommand(tags []string, cmdArgs []string) error {
 	return w.psb.Print(fmt.Sprintf("%v Executing command %v\n", tags, cmdArgs), true, w.stripansicolor)
 }
 
-//runCommand runs cmd on ex the Executor in the workDir and returns success and error
+// runCommand runs cmd on ex the Executor in the workDir and returns success and error
 func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir string, cmd []string) (bool, error) {
 	ctags := ex.GetTags()
 	var errList []error
@@ -223,46 +224,52 @@ func (w *Worker) runCommand(oldsuccess bool, ex executor.Executor, workDir strin
 				errList = append(errList, fmt.Errorf("failed to initialize executor %w", err))
 				continue
 			}
-			defer ex.Close()
-			done := make(chan error)
-			go func(done chan error) {
-				for {
-					data, err := rdr.ReadString('\n')
-					if err != nil {
-						if err != io.EOF {
-							done <- fmt.Errorf("error while reading from buffer %w", err)
+
+			// Isolated per-iteration execution block to ensure correct resource cleanup and defer scoping
+			success, err = func() (bool, error) {
+				defer ex.Close()
+				done := make(chan error)
+				go func(done chan error) {
+					for {
+						data, err := rdr.ReadString('\n')
+						if err != nil {
+							if err != io.EOF {
+								done <- fmt.Errorf("error while reading from buffer %w", err)
+							}
+							if len(data) > 0 {
+								w.printAndStreamLog(ctags, data)
+							}
+							break
 						}
-						if len(data) > 0 {
-							w.printAndStreamLog(ctags, data)
-						}
-						break
+						w.printAndStreamLog(ctags, data)
+						time.Sleep(25 * time.Millisecond)
 					}
-					w.printAndStreamLog(ctags, data)
-					time.Sleep(25*time.Millisecond)
+					done <- nil
+				}(done)
+				// if start or wait error out, then we record the error and move on to next attempt
+				err = ex.Start()
+				if err != nil {
+					return false, fmt.Errorf("failed to start executing command %w", err)
 				}
-				done <- nil
-			}(done)
-			// if start or wait error out, then we record the error and move on to next attempt
-			err = ex.Start()
-			if err != nil {
-				errList = append(errList, fmt.Errorf("failed to start executing command %w", err))
-				continue
-			}
-			err = <-done
+				err = <-done
+				if err != nil {
+					return false, err
+				}
+				success, err = ex.Wait()
+				if err != nil {
+					return false, fmt.Errorf("failed to wait for command completion %w", err)
+				}
+				err = w.psb.FlushToQueue()
+				if err != nil {
+					return false, fmt.Errorf("failed to flush %w", err)
+				}
+				return success, nil
+			}()
+
 			if err != nil {
 				errList = append(errList, err)
 				continue
 			}
-			success, err = ex.Wait()
-			if err != nil {
-				errList = append(errList, fmt.Errorf("failed to wait for command completion %w", err))
-				continue
-			}
-			err = w.psb.FlushToQueue()
-			if err != nil {
-				return false, fmt.Errorf("failed to flush %w", err)
-			}
-			// if we have reached this point, then we do not have any executor errors, so return success status
 			return success, nil
 		}
 	}
@@ -289,7 +296,7 @@ func (w *Worker) setupGit(oldstatus bool, ex executor.Executor, repoDir string) 
 	return true, nil
 }
 
-//setupTests sets up testing using Executor ex, in workDir the workdirectory and repoDir the repo clone location. Returns success and error.
+// setupTests sets up testing using Executor ex, in workDir the workdirectory and repoDir the repo clone location. Returns success and error.
 func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool, error) {
 	var err error
 	var chkout string
@@ -357,7 +364,7 @@ func (w *Worker) setupTests(ex executor.Executor, workDir, repoDir string) (bool
 	return status, nil
 }
 
-//runTests runs tests using executor ex and repoDir the repo clone location. If oldstatus is false, it is skipped
+// runTests runs tests using executor ex and repoDir the repo clone location. If oldstatus is false, it is skipped
 func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) (bool, error) {
 	var err error
 	if oldstatus {
@@ -392,8 +399,8 @@ func (w *Worker) runTests(oldstatus bool, ex executor.Executor, repoDir string) 
 	return false, nil
 }
 
-//tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
-//if oldsuccess is false, then this is skipped
+// tearDownTests cleanups up using Executor ex in workDir the workDirectory and returns success and error
+// if oldsuccess is false, then this is skipped
 func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir string) (bool, error) {
 	klog.V(2).Infof("tearing down test env")
 	if oldsuccess {
@@ -407,8 +414,8 @@ func (w *Worker) tearDownTests(oldsuccess bool, ex executor.Executor, workDir st
 	return false, nil
 }
 
-//test runs the tests on a node. If node is nill LocalExecutor is used, otherwise SSHExecutor is used.
-//returns success and error
+// test runs the tests on a node. If node is nill LocalExecutor is used, otherwise SSHExecutor is used.
+// returns success and error
 func (w *Worker) test(nd *node.Node) (bool, error) {
 	var err error
 	var ex executor.Executor
@@ -443,8 +450,8 @@ func (w *Worker) test(nd *node.Node) (bool, error) {
 	return status, nil
 }
 
-//run calls test by iterating over sshnodes or calls test without a node if no sshnodes
-//returns success and error
+// run calls test by iterating over sshnodes or calls test without a node if no sshnodes
+// returns success and error
 func (w *Worker) run() (bool, error) {
 	status := true
 	var err error
@@ -470,7 +477,7 @@ func (w *Worker) run() (bool, error) {
 	return status, nil
 }
 
-//sendStatusMessage sends the status message over queue, based on success value
+// sendStatusMessage sends the status message over queue, based on success value
 func (w *Worker) sendStatusMessage(success bool) error {
 	sm := messages.NewStatusMessage(w.jenkinsBuild, success, w.jenkinsProject)
 	klog.V(2).Infof("sending status message")
@@ -492,7 +499,7 @@ func (w *Worker) printBuildInfo() {
 	fmt.Printf("!!!Build for Kind: %s Target: %s!!!\n", w.cimsg.Kind, w.cimsg.Target)
 }
 
-//Run runs the worker and returns error if any.
+// Run runs the worker and returns error if any.
 func (w *Worker) Run() (bool, error) {
 	var success bool
 	w.initFilterFunc()
@@ -509,7 +516,7 @@ func (w *Worker) Run() (bool, error) {
 			if exists1 {
 				log.Fatalf("found newer build, cancelling current build")
 			}
-			time.Sleep(2*time.Minute)
+			time.Sleep(2 * time.Minute)
 		}
 	}()
 	if err = w.cleanupOldBuilds(); err != nil {
@@ -544,7 +551,7 @@ func (w *Worker) Run() (bool, error) {
 	return success, nil
 }
 
-//Shutdown shuts down the worker and returns error if any
+// Shutdown shuts down the worker and returns error if any
 func (w *Worker) Shutdown() error {
 	if w.rcvq != nil {
 		return w.rcvq.Shutdown(false)
