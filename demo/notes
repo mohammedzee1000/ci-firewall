@@ -1,0 +1,41 @@
+./clean-ci.sh
+./deploy-ci.sh
+create jenkins user with jenkins db
+create creds for jenkins and rabbtmq 
+ci-firewall toolkit sendq create --amqpuri amqp://guest:guest@localhost:5672/
+
+in jenkins/Systems/CI Monitor add rabbitmq provider
+h:rabbitmq
+5672
+vh:/
+amqp.ci.exchange.send
+amqp.ci.topic.send
+amqp.ci.queue.send
+
+crete jenkins project
+add ci trigger with rabbitmq
+enable concurrent builds
+Also insert AMQP_URI as arg ie 
+AMQP_URI=amqp://guest:guest@localhost:5672/
+on sender
+on recever set it to 
+AMQP_URI=amqp://guest:guest@rabbitmq:5672/ 
+
+In jenkins add it as a secret text env
+Do same for jenkins robot account ie
+JENKINS_URL=http://jenkins:8080
+JENKINS_ROBOT_USER=jenkins
+JENKINS_ROBOT_PASSWORD=jenkins
+DOnt forget to update system setting jenkins advertised url to same
+
+in exec shell put:
+```
+rm -rf ./*
+curl -kJLO https://github.com/mohammedzee1000/ci-firewall/releases/download/v0.1.3/ci-firewall-linux-amd64.tar.gz
+tar -xzf ./ci-firewall-linux-amd64.tar.gz && rm -rf ./ci-firewall-linux-amd64.tar.gz && chmod +x ./ci-firewall
+script --return -c "./ci-firewall work --env 'FOO1=BAR1' --env 'FOO2=BAR2'" /dev/null
+rm -rf ./*
+```
+
+pr 29
+ ci-firewall request --jenkinsproject test-project --repourl https://github.com/mohammedzee1000/ci-firewall --kind PR --target 29 --runscript "./scripts/run_script.sh"
